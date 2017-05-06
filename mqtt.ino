@@ -1,3 +1,19 @@
+
+#include <ESP8266WiFi.h>
+#include <ESP8266WiFiAP.h>
+#include <ESP8266WiFiGeneric.h>
+#include <ESP8266WiFiMulti.h>
+#include <ESP8266WiFiScan.h>
+#include <ESP8266WiFiSTA.h>
+#include <ESP8266WiFiType.h>
+#include <WiFiClient.h>
+#include <WiFiClientSecure.h>
+#include <WiFiServer.h>
+#include <WiFiUdp.h>
+
+#include "base64.hpp"
+//#include "Base64.h"
+
 /**************************************************************
  *
  * For this example, you need to install PubSubClient library:
@@ -57,17 +73,23 @@ const char* topicLed = "GsmClientTest/led";
 const char* topicInit = "GsmClientTest/init";
 const char* topicLedStatus = "GsmClientTest/ledStatus";
 
+const char* ssid      = "REMOTE45cfsc";
+const char* wifipassword  = "fhcm852767";
+const char* host      = "192.168.8.46";
+
 #define LED_PIN 13
 int ledStatus = LOW;
-
+byte num  = 0;
 long lastReconnectAttempt = 0;
-
+WiFiClient carclient;
 void setup() {
   pinMode(LED_PIN, OUTPUT);
 
   // Set console baud rate
   Serial.begin(115200);
   delay(10);
+
+  setupWifi();
 
   // Set GSM module baud rate
   SerialAT.begin(115200);
@@ -101,6 +123,28 @@ void setup() {
   mqtt.setCallback(mqttCallback);
 }
 
+void setupWifi() {
+  Serial.println("\nWifi starting");
+
+  Serial.println();
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  
+  WiFi.begin(ssid, wifipassword);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");  
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+  Serial.println("\nWiFi started");
+
+}
+
 boolean mqttConnect() {
   Serial.print("Connecting to ");
   Serial.print(broker);
@@ -116,7 +160,9 @@ boolean mqttConnect() {
 
 void loop() {
 
+  
   if (mqtt.connected()) {
+    ping();
     mqtt.loop();
   } else {
     // Reconnect every 10 seconds
@@ -128,7 +174,59 @@ void loop() {
       }
     }
   }
+  delay(100);
+}
 
+byte checksum(unsigned char * data){
+  byte b = 0;
+  int i;
+  int j = sizeof(data);
+
+  for (i = 0;i < j; i++)
+  {
+    b = data[i] + b & 0xff;
+  }  
+  return b;
+} 
+
+
+void connectToCar(){
+  if(!carclient.connected()){
+      const int httpPort = 8080;
+    if (!carclient.connect(host, httpPort)) {
+      Serial.println("connection failed");
+      return;
+    }
+  } 
+}
+void ping() {
+  unsigned char ping[] = {0xf9,0x04,0x00,0x00,0x00,0xfd};
+  
+  ping[3] = (unsigned char) (num++ & 0xff);
+  ping[5] = checksum(ping);
+  connectToCar();
+  carclient.write((unsigned char*) ping,6);
+  unsigned long timeout = millis();
+  while (carclient.available() == 0) {
+    if (millis() - timeout > 5000) {
+      Serial.println(">>> Client Timeout !");
+      carclient.stop();
+      return;
+    }
+  }
+  
+  // Read all the lines of the reply from server and print them to Serial
+  unsigned char buf[256];
+  unsigned char buf2[300];
+  
+  int i=0;
+  while(carclient.available()){
+    byte b = carclient.read();
+    buf[(i++ & 0xff)] = b;
+  }
+  encode_base64(buf,i,buf2);
+  mqtt.publish(topicLedStatus, (const char *) buf2);
+  
 }
 
 void mqttCallback(char* topic, byte* payload, unsigned int len) {
