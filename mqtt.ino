@@ -72,6 +72,9 @@ const char* broker = "jenkins.wattu.com";
 const char* topicLed = "GsmClientTest/led";
 const char* topicInit = "GsmClientTest/init";
 const char* topicLedStatus = "GsmClientTest/ledStatus";
+const char* pingOut = "GsmClientTest/pingout";
+const char* pingIn = "GsmClientTest/pingin";
+
 
 const char* ssid      = "REMOTE45cfsc";
 const char* wifipassword  = "fhcm852767";
@@ -200,11 +203,16 @@ void connectToCar(){
   } 
 }
 void ping() {
+  unsigned char buf[256];
+  unsigned char buf2[300];
+  
   unsigned char ping[] = {0xf9,0x04,0x00,0x00,0x00,0xfd};
   
   ping[3] = (unsigned char) (num++ & 0xff);
   ping[5] = checksum(ping);
   connectToCar();
+  encode_base64(buf,i,buf2);
+  mqtt.publish(pingOut, (const char *) ping);
   carclient.write((unsigned char*) ping,6);
   unsigned long timeout = millis();
   while (carclient.available() == 0) {
@@ -216,8 +224,6 @@ void ping() {
   }
   
   // Read all the lines of the reply from server and print them to Serial
-  unsigned char buf[256];
-  unsigned char buf2[300];
   
   int i=0;
   while(carclient.available()){
@@ -225,7 +231,7 @@ void ping() {
     buf[(i++ & 0xff)] = b;
   }
   encode_base64(buf,i,buf2);
-  mqtt.publish(topicLedStatus, (const char *) buf2);
+  mqtt.publish(pingIn, (const char *) buf2);
   
 }
 
