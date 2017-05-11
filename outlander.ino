@@ -30,15 +30,15 @@
  *   node-red-dashboard
  *
  **************************************************************/
-
+#define _DEBUG_
 // Select your modem:
 #define TINY_GSM_MODEM_SIM800
 //#define TINY_GSM_MODEM_SIM900
 //#define TINY_GSM_MODEM_A6
 //#define TINY_GSM_MODEM_M590
-#define TINY_GSM_RX_BUFFER 64
+#define TINY_GSM_RX_BUFFER 31
 #define MQTT_MAX_PACKET_SIZE 512
-#define TINY_GSM_USE_HEX
+//#define TINY_GSM_USE_HEX
 #include <TinyGsmClient.h>
 
 #include <PubSubClient.h>
@@ -50,10 +50,14 @@ const char pass[] = "secure";
 
 // Use Hardware Serial on Mega, Leonardo, Micro
 //#define SerialAT Serial1
-
+#define SerialMon Serial
 // or Software Serial on Uno, Nano
 #include <SoftwareSerial.h>
+#include <StreamDebugger.h>
 SoftwareSerial SerialAT(4, 5); // RX, TX
+
+
+//StreamDebugger debugger(SerialAT, SerialMon);
 
 WiFiClient carclient;
 TinyGsm modem(SerialAT);
@@ -68,10 +72,13 @@ const char* phevPingOut = "phev/pingOut";
 const char* phevPingIn = "phev/pingIn";
 const char* phevWifiDetails = "phev/wifiDetails";
 const char* phevConnectToCar = "phev/connectToCar";
+const char* phevSend = "phev/send";
+const char* phevReceive = "phev/receive";
+const char* phevConnected = "phev/connected";
 
 String ssid      = "BTHub3-HSZ3";
 String password  = "simpsons";
-String host      = "192.168.8.46";
+String host      = "WATTU";
 
 byte num  = 0;
 long lastReconnectAttempt = 0;
@@ -81,7 +88,7 @@ void setup() {
   // Set console baud rate
 
 
-  Serial.begin(115200);
+  SerialMon.begin(115200);
   delay(10);
 
   setupGprs();
@@ -123,13 +130,16 @@ void setupWifi() {
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
-  
-  WiFi.begin(ssid.c_str(), password.c_str());
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  if (WiFi.status() != WL_CONNECTED) {
+    WiFi.persistent(false);
+    WiFi.mode(WIFI_OFF); 
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid.c_str(), password.c_str());
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.print(".");
+    }
   }
-
   Serial.println("\nWiFi connected");  
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
@@ -139,8 +149,10 @@ void setupWifi() {
 
 void subscribe(){
   //mqtt.subscribe(phevPingOut);
-//  mqtt.subscribe(phevConnectToCar);
+  mqtt.subscribe(phevConnectToCar);
   mqtt.subscribe(phevWifiDetails);
+  mqtt.subscribe(phevSend);
+
 }
 
 boolean mqttConnect() {
@@ -151,7 +163,7 @@ boolean mqttConnect() {
     return false;
   }
   Serial.println(" OK");
-  mqtt.publish(phevInit, "12345678901234567890123456789012345678901234567890");
+  mqtt.publish(phevInit, "Connected");
   subscribe();
   return mqtt.connected();
 }
@@ -194,7 +206,9 @@ void connectToCar(){
       Serial.println("connection failed");
       return;
     }
-  } 
+  }
+  mqtt.publish(phevConnected, "Connected to car");
+  
 }
 void ping() {
   int i=0;
@@ -233,21 +247,13 @@ void ping() {
 
 void mqttCallback(char* topic, byte* payload, unsigned int len) {
 
-  byte* p = (byte*)malloc(len);
-  // Copy the payload to the new buffer
-  memcpy(p,payload,len);
-//  byte buffer[1024];
-
-//  memcpy(buffer,payload,len);
- // Serial.print("Message len ");
- // Serial.println(len);
- /* Serial.print("Message arrived [");
+  Serial.print("Message arrived [");
   Serial.print(topic);  
   Serial.print("]: ");
   Serial.write(payload, len);
   Serial.println();
-*/
-//  handleMessage(String(topic),payload);
+
+  handleMessage(String(topic),payload);
 }
 
 String getParameter(String param, byte * data) {
@@ -273,6 +279,9 @@ void handleMessage(String topic,byte * msg){
     Serial.println("SSID " + ssid);
     Serial.println("PASSWORD " + password);
     Serial.println("HOST " + host);
+    connectToCar();
+    Serial.println("Connected to car");
+    
     return;
   } 
   if(topic == String(phevConnectToCar)) {
@@ -280,6 +289,45 @@ void handleMessage(String topic,byte * msg){
     setupWifi();
     connectToCar();
     Serial.println("Connected to car");
+    
+  }
+  if(topic == String(phevSend)) {
+    String command;  
+    byte buf[512];
+    unsigned char buf2[600];
+  
+    int len = decode_base64((unsigned char *) msg,(unsigned char *) buf);
+    int i;
+
+    Serial.print("Sending command ");
+    for(i=0;i<len;i++) {
+      Serial.print(buf[i],HEX);
+    }
+    Serial.println("");
+    carclient.write((unsigned char*) buf,len);
+    Serial.print("Waiting for response");
+    unsigned long timeout = millis();
+    
+    while (carclient.available() == 0) {
+    if (millis() - timeout > 20000) {
+      Serial.println(">>> Client Timeout !");
+      carclient.stop();
+      return;
+    }
+  }
+    i=0;
+    Serial.print("Response ");
+    
+    while(carclient.available()){
+      byte b = carclient.read();
+      buf[(i++ & 0xff)] = b;
+      Serial.print(b,HEX);
+    
+    }
+    Serial.println("\nSending mqtt response");
+      
+    encode_base64(buf,i,buf2);
+    mqtt.publish(phevReceive, (const char *) buf2);
     
   }
 }
