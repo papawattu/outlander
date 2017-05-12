@@ -79,7 +79,6 @@ String ssid = "BTHub3-HSZ3";
 String password = "simpsons";
 String host = "WATTU";
 
-
 boolean carConnected = false;
 byte num = 0;
 long lastReconnectAttempt = 0;
@@ -183,25 +182,7 @@ void loop()
 
   if (mqtt.connected())
   {
-    //ping();
     mqtt.loop();
-    if(carConnected) {
-      unsigned char buf[256];
-      unsigned char buf2[300];
-      int i = 0;
-      while (carclient.available()) {
-        byte b = carclient.read();
-        buf[(i++ & 0xff)] = b;
-        Serial.print(b, HEX);
-      }
-      if(i > 0) {
-        Serial.println("\nSending mqtt response");
-
-        encode_base64(buf, i, buf2);
-        mqtt.publish(phevReceive, (const char *)buf2);
-
-      }
-    }
   }
   else
   {
@@ -214,6 +195,20 @@ void loop()
       {
         lastReconnectAttempt = 0;
       }
+    }
+  }
+
+  if (carConnected)
+  {
+    unsigned char buf[255];
+    unsigned char buf2[300];
+    int i = carclient.readBytes(buf, 255);
+    if (i > 0)
+    {
+      Serial.println("\nSending mqtt response");
+
+      encode_base64(buf, i, buf2);
+      mqtt.publish(phevReceive, (const char *)buf2);
     }
   }
 }
@@ -236,16 +231,19 @@ boolean connectToCar()
   if (!carclient.connected())
   {
     const int httpPort = 8080;
-    if (carclient.connect(host.c_str(), httpPort)) {
+    if (carclient.connect(host.c_str(), httpPort))
+    {
       carConnected = true;
       mqtt.publish(phevConnected, "Connected to car");
       return true;
-    } else {
-      Serial.println("connection failed");
-       mqtt.publish(phevConnected, "Failed to connect to car");
-       return false;
     }
-  } 
+    else
+    {
+      Serial.println("connection failed");
+      mqtt.publish(phevConnected, "Failed to connect to car");
+      return false;
+    }
+  }
 }
 void ping()
 {
@@ -258,7 +256,8 @@ void ping()
 
   ping[3] = (unsigned char)(num++ & 0xff);
   data[5] = checksum(ping);
-  if(connectToCar()) {
+  if (connectToCar())
+  {
     encode_base64(buf, i, buf2);
     mqtt.publish(phevPingOut, (const char *)data);
     carclient.write((unsigned char *)data, 6);
@@ -272,8 +271,10 @@ void ping()
         return;
       }
     }
-  } else {
-    Serial.println(">>> Not connected"); 
+  }
+  else
+  {
+    Serial.println(">>> Not connected");
     return;
   }
 
@@ -333,8 +334,8 @@ void handleMessage(String topic, byte *msg)
     setupWifi();
     connectToCar();
     Serial.println("Connected to car");
-  //  Serial.println("Ping");
-  //  ping();
+    //  Serial.println("Ping");
+    //  ping();
 
     return;
   }
@@ -344,8 +345,8 @@ void handleMessage(String topic, byte *msg)
     setupWifi();
     connectToCar();
     Serial.println("Connected to car");
-  //  Serial.println("Ping");
-  //  ping();
+    //  Serial.println("Ping");
+    //  ping();
     return;
   }
   if (topic == String(phevSend))
