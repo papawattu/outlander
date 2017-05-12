@@ -53,7 +53,7 @@ const char pass[] = "secure";
 #define SerialMon Serial
 // or Software Serial on Uno, Nano
 #include <SoftwareSerial.h>
-#include <StreamDebugger.h>
+//#include <StreamDebugger.h>
 SoftwareSerial SerialAT(4, 5); // RX, TX
 
 //StreamDebugger debugger(SerialAT, SerialMon);
@@ -231,20 +231,21 @@ byte checksum(unsigned char *data)
   return b;
 }
 
-void connectToCar()
+boolean connectToCar()
 {
   if (!carclient.connected())
   {
     const int httpPort = 8080;
-    if (!carclient.connect(host.c_str(), httpPort))
-    {
+    if (carclient.connect(host.c_str(), httpPort)) {
+      carConnected = true;
+      mqtt.publish(phevConnected, "Connected to car");
+      return true;
+    } else {
       Serial.println("connection failed");
-      carConnected = false;
-      return;
+       mqtt.publish(phevConnected, "Failed to connect to car");
+       return false;
     }
-  }
-  carConnected = true;
-  mqtt.publish(phevConnected, "Connected to car");
+  } 
 }
 void ping()
 {
@@ -257,19 +258,23 @@ void ping()
 
   ping[3] = (unsigned char)(num++ & 0xff);
   data[5] = checksum(ping);
-  connectToCar();
-  encode_base64(buf, i, buf2);
-  mqtt.publish(phevPingOut, (const char *)data);
-  carclient.write((unsigned char *)data, 6);
-  unsigned long timeout = millis();
-  while (carclient.available() == 0)
-  {
-    if (millis() - timeout > 5000)
+  if(connectToCar()) {
+    encode_base64(buf, i, buf2);
+    mqtt.publish(phevPingOut, (const char *)data);
+    carclient.write((unsigned char *)data, 6);
+    unsigned long timeout = millis();
+    while (carclient.available() == 0)
     {
-      Serial.println(">>> Client Timeout !");
-      carclient.stop();
-      return;
+      if (millis() - timeout > 5000)
+      {
+        Serial.println(">>> Client Timeout !");
+        carclient.stop();
+        return;
+      }
     }
+  } else {
+    Serial.println(">>> Not connected"); 
+    return;
   }
 
   // Read all the lines of the reply from server and print them to Serial
@@ -325,6 +330,7 @@ void handleMessage(String topic, byte *msg)
     Serial.println("SSID " + ssid);
     Serial.println("PASSWORD " + password);
     Serial.println("HOST " + host);
+    setupWifi();
     connectToCar();
     Serial.println("Connected to car");
     Serial.println("Ping");
@@ -338,8 +344,8 @@ void handleMessage(String topic, byte *msg)
     setupWifi();
     connectToCar();
     Serial.println("Connected to car");
-    Serial.println("Ping");
-    ping();
+  //  Serial.println("Ping");
+  //  ping();
     return;
   }
   if (topic == String(phevSend))
