@@ -44,7 +44,7 @@
 #include <PubSubClient.h>
 // Your GPRS credentials
 // Leave empty, if missing user or pass
-const char apn[]  = "everywhere";
+const char apn[] = "everywhere";
 const char user[] = "eesecure";
 const char pass[] = "secure";
 
@@ -56,7 +56,6 @@ const char pass[] = "secure";
 #include <StreamDebugger.h>
 SoftwareSerial SerialAT(4, 5); // RX, TX
 
-
 //StreamDebugger debugger(SerialAT, SerialMon);
 
 WiFiClient carclient;
@@ -64,29 +63,31 @@ TinyGsm modem(SerialAT);
 TinyGsmClient client(modem);
 PubSubClient mqtt(client);
 
-const char* broker = "jenkins.wattu.com";
+const char *broker = "jenkins.wattu.com";
 
-const char* topic = "phev";
-const char* phevInit = "phev/init";
-const char* phevPingOut = "phev/pingOut";
-const char* phevPingIn = "phev/pingIn";
-const char* phevWifiDetails = "phev/wifiDetails";
-const char* phevConnectToCar = "phev/connectToCar";
-const char* phevSend = "phev/send";
-const char* phevReceive = "phev/receive";
-const char* phevConnected = "phev/connected";
+const char *topic = "phev";
+const char *phevInit = "phev/init";
+const char *phevPingOut = "phev/pingOut";
+const char *phevPingIn = "phev/pingIn";
+const char *phevWifiDetails = "phev/wifiDetails";
+const char *phevConnectToCar = "phev/connectToCar";
+const char *phevSend = "phev/send";
+const char *phevReceive = "phev/receive";
+const char *phevConnected = "phev/connected";
 
-String ssid      = "BTHub3-HSZ3";
-String password  = "simpsons";
-String host      = "WATTU";
+String ssid = "BTHub3-HSZ3";
+String password = "simpsons";
+String host = "WATTU";
 
-byte num  = 0;
+
+boolean carConnected = false;
+byte num = 0;
 long lastReconnectAttempt = 0;
 
-void setup() {
+void setup()
+{
 
   // Set console baud rate
-
 
   SerialMon.begin(115200);
   delay(10);
@@ -98,8 +99,9 @@ void setup() {
   mqtt.setCallback(mqttCallback);
 }
 
-void setupGprs() {
-// Set GSM module baud rate
+void setupGprs()
+{
+  // Set GSM module baud rate
   SerialAT.begin(115200);
   delay(3000);
 
@@ -109,56 +111,64 @@ void setupGprs() {
   modem.restart();
 
   Serial.print("Waiting for network...");
-  if (!modem.waitForNetwork()) {
+  if (!modem.waitForNetwork())
+  {
     Serial.println(" fail");
-    while (true);
+    while (true)
+      ;
   }
   Serial.println(" OK");
 
   Serial.print("Connecting to ");
   Serial.print(apn);
-  if (!modem.gprsConnect(apn, user, pass)) {
+  if (!modem.gprsConnect(apn, user, pass))
+  {
     Serial.println(" fail");
-    while (true);
+    while (true)
+      ;
   }
   Serial.println(" OK");
 }
-void setupWifi() {
+void setupWifi()
+{
   Serial.println("\nWifi starting");
 
   Serial.println();
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
-  if (WiFi.status() != WL_CONNECTED) {
+  if (WiFi.status() != WL_CONNECTED)
+  {
     WiFi.persistent(false);
-    WiFi.mode(WIFI_OFF); 
+    WiFi.mode(WIFI_OFF);
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid.c_str(), password.c_str());
-    while (WiFi.status() != WL_CONNECTED) {
+    while (WiFi.status() != WL_CONNECTED)
+    {
       delay(500);
       Serial.print(".");
     }
   }
-  Serial.println("\nWiFi connected");  
+  Serial.println("\nWiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
   Serial.println("\nWiFi started");
-
 }
 
-void subscribe(){
+void subscribe()
+{
   //mqtt.subscribe(phevPingOut);
   mqtt.subscribe(phevConnectToCar);
   mqtt.subscribe(phevWifiDetails);
   mqtt.subscribe(phevSend);
-
 }
 
-boolean mqttConnect() {
+boolean mqttConnect()
+{
   Serial.print("Connecting to ");
   Serial.print(broker);
-  if (!mqtt.connect(topic)) {
+  if (!mqtt.connect(topic))
+  {
     Serial.println(" fail");
     return false;
   }
@@ -168,167 +178,186 @@ boolean mqttConnect() {
   return mqtt.connected();
 }
 
-void loop() {
+void loop()
+{
 
-  
-  if (mqtt.connected()) {
+  if (mqtt.connected())
+  {
     //ping();
     mqtt.loop();
-  } else {
+    if(carConnected) {
+      unsigned char buf[256];
+      unsigned char buf2[300];
+      int i = 0;
+      while (carclient.available()) {
+        byte b = carclient.read();
+        buf[(i++ & 0xff)] = b;
+        Serial.print(b, HEX);
+      }
+      if(i > 0) {
+        Serial.println("\nSending mqtt response");
+
+        encode_base64(buf, i, buf2);
+        mqtt.publish(phevReceive, (const char *)buf2);
+
+      }
+    }
+  }
+  else
+  {
     // Reconnect every 10 seconds
     unsigned long t = millis();
-    if (t - lastReconnectAttempt > 10000L) {
+    if (t - lastReconnectAttempt > 10000L)
+    {
       lastReconnectAttempt = t;
-      if (mqttConnect()) {
+      if (mqttConnect())
+      {
         lastReconnectAttempt = 0;
       }
     }
   }
 }
 
-byte checksum(unsigned char * data){
+byte checksum(unsigned char *data)
+{
   byte b = 0;
   int i;
   int j = sizeof(data);
 
-  for (i = 0;i < j; i++)
+  for (i = 0; i < j; i++)
   {
     b = data[i] + b & 0xff;
-  }  
+  }
   return b;
-} 
+}
 
-
-void connectToCar(){
-  if(!carclient.connected()){
-      const int httpPort = 8080;
-    if (!carclient.connect(host.c_str(), httpPort)) {
+void connectToCar()
+{
+  if (!carclient.connected())
+  {
+    const int httpPort = 8080;
+    if (!carclient.connect(host.c_str(), httpPort))
+    {
       Serial.println("connection failed");
+      carConnected = false;
       return;
     }
   }
+  carConnected = true;
   mqtt.publish(phevConnected, "Connected to car");
-  
 }
-void ping() {
-  int i=0;
+void ping()
+{
+  int i = 0;
   unsigned char buf[256];
   unsigned char buf2[300];
-  
-  unsigned char ping[] = {0xf9,0x04,0x00,0x00,0x00};
-  unsigned char data[] = {0xf9,0x04,0x00,0x00,0x00,0x00};
-  
-  ping[3] = (unsigned char) (num++ & 0xff);
+
+  unsigned char ping[] = {0xf9, 0x04, 0x00, 0x00, 0x00};
+  unsigned char data[] = {0xf9, 0x04, 0x00, 0x00, 0x00, 0x00};
+
+  ping[3] = (unsigned char)(num++ & 0xff);
   data[5] = checksum(ping);
   connectToCar();
-  encode_base64(buf,i,buf2);
-  mqtt.publish(phevPingOut, (const char *) data);
-  carclient.write((unsigned char*) data,6);
+  encode_base64(buf, i, buf2);
+  mqtt.publish(phevPingOut, (const char *)data);
+  carclient.write((unsigned char *)data, 6);
   unsigned long timeout = millis();
-  while (carclient.available() == 0) {
-    if (millis() - timeout > 5000) {
+  while (carclient.available() == 0)
+  {
+    if (millis() - timeout > 5000)
+    {
       Serial.println(">>> Client Timeout !");
       carclient.stop();
       return;
     }
   }
-  
+
   // Read all the lines of the reply from server and print them to Serial
-  
-  i=0;
-  while(carclient.available()){
+
+  i = 0;
+  while (carclient.available())
+  {
     byte b = carclient.read();
     buf[(i++ & 0xff)] = b;
   }
-  encode_base64(buf,i,buf2);
-  mqtt.publish(phevPingIn, (const char *) buf2);
-  
+  encode_base64(buf, i, buf2);
+  mqtt.publish(phevPingIn, (const char *)buf2);
 }
 
-void mqttCallback(char* topic, byte* payload, unsigned int len) {
+void mqttCallback(char *topic, byte *payload, unsigned int len)
+{
 
   Serial.print("Message arrived [");
-  Serial.print(topic);  
+  Serial.print(topic);
   Serial.print("]: ");
   Serial.write(payload, len);
   Serial.println();
 
-  handleMessage(String(topic),payload);
+  handleMessage(String(topic), payload);
 }
 
-String getParameter(String param, byte * data) {
-  String str = String((const char *) data);
+String getParameter(String param, byte *data)
+{
+  String str = String((const char *)data);
   int idx = str.indexOf(param);
-  if(idx > -1) { 
-    String p = str.substring(idx + param.length() + 2,str.indexOf('"',idx + param.length() + 2));
+  if (idx > -1)
+  {
+    String p = str.substring(idx + param.length() + 2, str.indexOf('"', idx + param.length() + 2));
     return p;
-  } else {
+  }
+  else
+  {
     Serial.println("Not found " + param);
     return String("");
   }
 }
 
-void handleMessage(String topic,byte * msg){
-  
-  if(topic == String(phevWifiDetails)) {
-    ssid = getParameter("SSID",msg);
-    password = getParameter("PASSWORD",msg);
-    host = getParameter("HOST",msg);
-    
+void handleMessage(String topic, byte *msg)
+{
+
+  if (topic == String(phevWifiDetails))
+  {
+    ssid = getParameter("SSID", msg);
+    password = getParameter("PASSWORD", msg);
+    host = getParameter("HOST", msg);
+
     Serial.println("Got wifi details ");
     Serial.println("SSID " + ssid);
     Serial.println("PASSWORD " + password);
     Serial.println("HOST " + host);
     connectToCar();
     Serial.println("Connected to car");
-    
+    Serial.println("Ping");
+    ping();
+
     return;
-  } 
-  if(topic == String(phevConnectToCar)) {
+  }
+  if (topic == String(phevConnectToCar))
+  {
     Serial.println("Connecting to car");
     setupWifi();
     connectToCar();
     Serial.println("Connected to car");
-    
+    Serial.println("Ping");
+    ping();
+    return;
   }
-  if(topic == String(phevSend)) {
-    String command;  
+  if (topic == String(phevSend))
+  {
+    String command;
     byte buf[512];
     unsigned char buf2[600];
-  
-    int len = decode_base64((unsigned char *) msg,(unsigned char *) buf);
+
+    int len = decode_base64((unsigned char *)msg, (unsigned char *)buf);
     int i;
 
     Serial.print("Sending command ");
-    for(i=0;i<len;i++) {
-      Serial.print(buf[i],HEX);
+    for (i = 0; i < len; i++)
+    {
+      Serial.print(buf[i], HEX);
     }
     Serial.println("");
-    carclient.write((unsigned char*) buf,len);
-    Serial.print("Waiting for response");
-    unsigned long timeout = millis();
-    
-    while (carclient.available() == 0) {
-    if (millis() - timeout > 20000) {
-      Serial.println(">>> Client Timeout !");
-      carclient.stop();
-      return;
-    }
-  }
-    i=0;
-    Serial.print("Response ");
-    
-    while(carclient.available()){
-      byte b = carclient.read();
-      buf[(i++ & 0xff)] = b;
-      Serial.print(b,HEX);
-    
-    }
-    Serial.println("\nSending mqtt response");
-      
-    encode_base64(buf,i,buf2);
-    mqtt.publish(phevReceive, (const char *) buf2);
-    
+    carclient.write((unsigned char *)buf, len);
+    return;
   }
 }
-
