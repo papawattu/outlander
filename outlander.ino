@@ -333,8 +333,8 @@ void handleMessage(String topic, byte *msg)
     setupWifi();
     connectToCar();
     Serial.println("Connected to car");
-    Serial.println("Ping");
-    ping();
+  //  Serial.println("Ping");
+  //  ping();
 
     return;
   }
