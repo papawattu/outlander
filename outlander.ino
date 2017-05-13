@@ -1,61 +1,19 @@
-
+//#include <ESP8266.h>
 #include <ESP8266WiFi.h>
-
-#include "base64.hpp"
-//#include "Base64.h"
-
-/**************************************************************
- *
- * For this example, you need to install PubSubClient library:
- *   https://github.com/knolleary/pubsubclient/releases/latest
- *   or from http://librarymanager/all#PubSubClient
- *
- * TinyGSM Getting Started guide:
- *   http://tiny.cc/tiny-gsm-readme
- *
- **************************************************************
- * Use Mosquitto client tools to work with MQTT
- *   Ubuntu/Linux: sudo apt-get install mosquitto-clients
- *   Windows:      https://mosquitto.org/download/
- *
- * Subscribe for messages:
- *   mosquitto_sub -h test.mosquitto.org -t GsmClientTest/init -t GsmClientTest/ledStatus -q 1
- * Toggle led:
- *   mosquitto_pub -h test.mosquitto.org -t GsmClientTest/led -q 1 -m "toggle"
- *
- * You can use Node-RED for wiring together MQTT-enabled devices
- *   https://nodered.org/
- * Also, take a look at these additional Node-RED modules:
- *   node-red-contrib-blynk-websockets
- *   node-red-dashboard
- *
- **************************************************************/
-#define _DEBUG_
-// Select your modem:
 #define TINY_GSM_MODEM_SIM800
-//#define TINY_GSM_MODEM_SIM900
-//#define TINY_GSM_MODEM_A6
-//#define TINY_GSM_MODEM_M590
 #define TINY_GSM_RX_BUFFER 31
-#define MQTT_MAX_PACKET_SIZE 512
-//#define TINY_GSM_USE_HEX
 #include <TinyGsmClient.h>
-
 #include <PubSubClient.h>
-// Your GPRS credentials
-// Leave empty, if missing user or pass
+#include "base64.hpp"
+
 const char apn[] = "everywhere";
 const char user[] = "eesecure";
 const char pass[] = "secure";
 
-// Use Hardware Serial on Mega, Leonardo, Micro
-//#define SerialAT Serial1
 #define SerialMon Serial
-// or Software Serial on Uno, Nano
 #include <SoftwareSerial.h>
 //#include <StreamDebugger.h>
 SoftwareSerial SerialAT(4, 5); // RX, TX
-
 //StreamDebugger debugger(SerialAT, SerialMon);
 
 WiFiClient carclient;
@@ -74,7 +32,7 @@ const char *phevConnectToCar = "phev/connectToCar";
 const char *phevSend = "phev/send";
 const char *phevReceive = "phev/receive";
 const char *phevConnected = "phev/connected";
-
+const char *phevReset = "phev/reset";
 String ssid = "BTHub3-HSZ3";
 String password = "simpsons";
 String host = "WATTU";
@@ -83,29 +41,36 @@ boolean carConnected = false;
 byte num = 0;
 long lastReconnectAttempt = 0;
 
+unsigned char * incomingBuffer;
+unsigned char * outgoingBuffer;
+
+#define  INCOMING_BUFFER_SIZE 1024
+#define  OUTGOING_BUFFER_SIZE 1024  
+
 void setup()
 {
 
-  // Set console baud rate
-
   SerialMon.begin(115200);
   delay(10);
-
+  incomingBuffer = (unsigned char *) malloc(INCOMING_BUFFER_SIZE);
+  outgoingBuffer = (unsigned char *) malloc(OUTGOING_BUFFER_SIZE);
+  
+  if(incomingBuffer == NULL || outgoingBuffer == NULL) {
+    Serial.println("Failed to allocate buffers");
+    while(true);
+  }
   setupGprs();
   //setupWifi();
-  // MQTT Broker setup
+ 
   mqtt.setServer(broker, 1883);
   mqtt.setCallback(mqttCallback);
 }
 
 void setupGprs()
 {
-  // Set GSM module baud rate
   SerialAT.begin(115200);
   delay(3000);
 
-  // Restart takes quite some time
-  // To skip it, call init() instead of restart()
   Serial.println("Initializing modem...");
   modem.restart();
 
@@ -128,6 +93,7 @@ void setupGprs()
   }
   Serial.println(" OK");
 }
+
 void setupWifi()
 {
   Serial.println("\nWifi starting");
@@ -157,9 +123,10 @@ void setupWifi()
 void subscribe()
 {
   //mqtt.subscribe(phevPingOut);
-  mqtt.subscribe(phevConnectToCar);
-  mqtt.subscribe(phevWifiDetails);
-  mqtt.subscribe(phevSend);
+  //mqtt.subscribe(phevConnectToCar);
+  //mqtt.subscribe(phevWifiDetails);
+  //mqtt.subscribe(phevSend);
+  mqtt.subscribe("phev/#");
 }
 
 boolean mqttConnect()
@@ -210,6 +177,8 @@ void loop()
       encode_base64(buf, i, buf2);
       mqtt.publish(phevReceive, (const char *)buf2);
     }
+  }  else {
+
   }
 }
 
@@ -228,6 +197,7 @@ byte checksum(unsigned char *data)
 
 boolean connectToCar()
 {
+  carConnected = false;
   if (!carclient.connected())
   {
     const int httpPort = 8080;
@@ -243,7 +213,9 @@ boolean connectToCar()
       mqtt.publish(phevConnected, "Failed to connect to car");
       return false;
     }
+    Serial.println("No Wifi");
   }
+  return false;
 }
 void ping()
 {
@@ -293,13 +265,14 @@ void ping()
 void mqttCallback(char *topic, byte *payload, unsigned int len)
 {
 
+  memcpy(incomingBuffer,payload,len);
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("]: ");
   Serial.write(payload, len);
   Serial.println();
-
-  handleMessage(String(topic), payload);
+  
+  handleMessage(String(topic), incomingBuffer,len);
 }
 
 String getParameter(String param, byte *data)
@@ -318,7 +291,7 @@ String getParameter(String param, byte *data)
   }
 }
 
-void handleMessage(String topic, byte *msg)
+void handleMessage(String topic, byte *msg, unsigned int len)
 {
 
   if (topic == String(phevWifiDetails))
@@ -349,14 +322,24 @@ void handleMessage(String topic, byte *msg)
     //  ping();
     return;
   }
+  if (topic == String(phevReset))
+  {
+    Serial.println("Resetting");
+    ESP.restart();
+    return;
+  }
   if (topic == String(phevSend))
   {
     String command;
     byte buf[512];
     unsigned char buf2[600];
+    memset(buf,'\0',sizeof(buf));
+    memset(buf2,'\0',sizeof(buf2));
+
 
     int len = decode_base64((unsigned char *)msg, (unsigned char *)buf);
     int i;
+    buf[len] = '\0';
 
     Serial.print("Sending command ");
     for (i = 0; i < len; i++)
