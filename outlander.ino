@@ -123,10 +123,10 @@ void setupWifi()
 void subscribe()
 {
   //mqtt.subscribe(phevPingOut);
-  //mqtt.subscribe(phevConnectToCar);
-  //mqtt.subscribe(phevWifiDetails);
-  //mqtt.subscribe(phevSend);
-  mqtt.subscribe("phev/#");
+  mqtt.subscribe(phevConnectToCar);
+  mqtt.subscribe(phevWifiDetails);
+  mqtt.subscribe(phevSend);
+  mqtt.subscribe(phevReset);
 }
 
 boolean mqttConnect()
