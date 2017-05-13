@@ -49,7 +49,9 @@ unsigned char * outgoingBuffer;
 
 void setup()
 {
-
+  WiFi.persistent(false);
+  WiFi.mode(WIFI_OFF);
+  WiFi.mode(WIFI_STA);
   SerialMon.begin(115200);
   delay(10);
   incomingBuffer = (unsigned char *) malloc(INCOMING_BUFFER_SIZE);
