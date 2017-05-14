@@ -4,7 +4,7 @@
 #define TINY_GSM_RX_BUFFER 31
 #include <TinyGsmClient.h>
 #include <PubSubClient.h>
-#include "base64.hpp"
+#include <base64.hpp>
 
 const char apn[] = "everywhere";
 const char user[] = "eesecure";
@@ -170,13 +170,13 @@ void loop()
   if (carConnected)
   {
     unsigned char buf[255];
-    unsigned char buf2[300];
+    char buf2[300];
     int i = carclient.readBytes(buf, 255);
     if (i > 0)
     {
       Serial.println("\nSending mqtt response");
 
-      encode_base64(buf, i, buf2);
+      encode64((unsigned char *) buf, (char *) buf2,i);
       mqtt.publish(phevReceive, (const char *)buf2);
     }
   }  else {
@@ -221,9 +221,10 @@ boolean connectToCar()
 }
 void ping()
 {
+ //this is broken do not use
   int i = 0;
   unsigned char buf[256];
-  unsigned char buf2[300];
+  char buf2[300];
 
   unsigned char ping[] = {0xf9, 0x04, 0x00, 0x00, 0x00};
   unsigned char data[] = {0xf9, 0x04, 0x00, 0x00, 0x00, 0x00};
@@ -232,7 +233,7 @@ void ping()
   data[5] = checksum(ping);
   if (connectToCar())
   {
-    encode_base64(buf, i, buf2);
+    //encode64(buf, buf2,i);
     mqtt.publish(phevPingOut, (const char *)data);
     carclient.write((unsigned char *)data, 6);
     unsigned long timeout = millis();
@@ -260,7 +261,7 @@ void ping()
     byte b = carclient.read();
     buf[(i++ & 0xff)] = b;
   }
-  encode_base64(buf, i, buf2);
+//  encode64(buf, buf2 ,i);
   mqtt.publish(phevPingIn, (const char *)buf2);
 }
 
@@ -339,7 +340,7 @@ void handleMessage(String topic, byte *msg, unsigned int len)
     memset(buf2,'\0',sizeof(buf2));
 
 
-    int len = decode_base64((unsigned char *)msg, (unsigned char *)buf);
+    int len = decode64((char *)msg, (unsigned char *)buf);
     int i;
     buf[len] = '\0';
 
@@ -352,4 +353,12 @@ void handleMessage(String topic, byte *msg, unsigned int len)
     carclient.write((unsigned char *)buf, len);
     return;
   }
+}
+
+void encode64(unsigned char * src, char * dest,unsigned int len) {
+  encode_base64(src, len, (unsigned char *) dest);	
+}
+
+int decode64(char * src, unsigned char * dest) {
+  return decode_base64((unsigned char *) src,dest);
 }
