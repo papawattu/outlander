@@ -1,4 +1,6 @@
-//#include <ESP8266.h>
+extern "C" {
+#include "user_interface.h"
+}
 //#define _BASE64
 #include <ESP8266WiFi.h>
 #define TINY_GSM_MODEM_SIM800
@@ -47,9 +49,7 @@ const char *phevSend = "phev/send";
 const char *phevReceive = "phev/receive";
 const char *phevConnected = "phev/connected";
 const char *phevReset = "phev/reset";
-String ssid = "BTHub3-HSZ3";
-String password = "simpsons";
-String host = "WATTU";
+const char *phevError = "phev/error";
 
 boolean carConnected = false;
 byte num = 0;
@@ -66,15 +66,9 @@ void setup()
   WiFi.persistent(false);
   WiFi.mode(WIFI_OFF);
   WiFi.mode(WIFI_STA);
+  WiFi.hostname("android-88a84719193c6b9");
   SerialMon.begin(115200);
   delay(10);
-  incomingBuffer = (unsigned char *) malloc(INCOMING_BUFFER_SIZE);
-  outgoingBuffer = (unsigned char *) malloc(OUTGOING_BUFFER_SIZE);
-  
-  if(incomingBuffer == NULL || outgoingBuffer == NULL) {
-    Serial.println("Failed to allocate buffers");
-    while(true);
-  }
   setupGprs();
   //setupWifi();
  
@@ -111,30 +105,37 @@ void setupGprs()
   Serial.println(" OK");
 }
 
-void setupWifi()
+void setupWifi(const char * ssid,const char * password)
 {
+  int times = 0;
   Serial.println("\nWifi starting");
 
   Serial.println();
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
+  uint8_t mac[] = { 0xac, 0x37, 0x43, 0x4d, 0xda, 0x90 };
+  bool a = wifi_set_macaddr(STATION_IF, &mac[0]);
   if (WiFi.status() != WL_CONNECTED)
   {
-    WiFi.persistent(false);
-    WiFi.mode(WIFI_OFF);
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid.c_str(), password.c_str());
-    while (WiFi.status() != WL_CONNECTED)
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED && times < 50)
     {
       delay(500);
       Serial.print(".");
+      times++;
     }
   }
-  Serial.println("\nWiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-  Serial.println("\nWiFi started");
+  if(times < 50) {
+    Serial.println("\nWiFi connected");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
+    Serial.println("\nWiFi started");
+  } else {
+    Serial.println("Wifi timeout");
+    mqtt.publish(phevError, "Failed to connect to WiFi");
+    //reset();
+  }
 }
 
 void subscribe()
@@ -230,16 +231,19 @@ byte checksum(unsigned char *data)
   return b;
 }
 
-boolean connectToCar()
-{
+boolean connectToCar(const char * host) {
+
   carConnected = false;
   if (!carclient.connected())
   {
     const int httpPort = 8080;
-    if (carclient.connect(host.c_str(), httpPort))
+    if (carclient.connect(host, httpPort))
     {
+      String msg = "Connected to car host : ";
+      msg += host;
       carConnected = true;
-      mqtt.publish(phevConnected, "Connected to car");
+      Serial.println(msg);
+      mqtt.publish(phevConnected, msg.c_str());
       return true;
     }
     else
@@ -249,53 +253,10 @@ boolean connectToCar()
       return false;
     }
     Serial.println("No Wifi");
+    mqtt.publish(phevError, "WiFi not connected");
+    
   }
   return false;
-}
-void ping()
-{
- //this is broken do not use
-  int i = 0;
-  unsigned char buf[256];
-  char buf2[300];
-
-  unsigned char ping[] = {0xf9, 0x04, 0x00, 0x00, 0x00};
-  unsigned char data[] = {0xf9, 0x04, 0x00, 0x00, 0x00, 0x00};
-
-  ping[3] = (unsigned char)(num++ & 0xff);
-  data[5] = checksum(ping);
-  if (connectToCar())
-  {
-    //encode64(buf, buf2,i);
-    mqtt.publish(phevPingOut, (const char *)data);
-    carclient.write((unsigned char *)data, 6);
-    unsigned long timeout = millis();
-    while (carclient.available() == 0)
-    {
-      if (millis() - timeout > 5000)
-      {
-        Serial.println(">>> Client Timeout !");
-        carclient.stop();
-        return;
-      }
-    }
-  }
-  else
-  {
-    Serial.println(">>> Not connected");
-    return;
-  }
-
-  // Read all the lines of the reply from server and print them to Serial
-
-  i = 0;
-  while (carclient.available())
-  {
-    byte b = carclient.read();
-    buf[(i++ & 0xff)] = b;
-  }
-//  encode64(buf, buf2 ,i);
-  mqtt.publish(phevPingIn, (const char *)buf2);
 }
 
 void mqttCallback(char *topic, byte *payload, unsigned int len)
@@ -303,10 +264,14 @@ void mqttCallback(char *topic, byte *payload, unsigned int len)
 
   if(len > MAX_PAYLOAD_SIZE) {
     Serial.println("Message payload too big - ignoring");
+    mqtt.publish(phevError, "Message payload too big - ignoring");
+    
     return;
   }
   if(numMessages == MAX_NUM_MESSAGES) {
     Serial.println("Maximum number of queued messages - ignoring");
+    mqtt.publish(phevError, "Maximum number of queued messages - ignoring");
+   
     return;
   }
 
@@ -346,37 +311,26 @@ void handleMessage(String topic, byte *msg, unsigned int len)
     
   if (topic == String(phevWifiDetails))
   {
-    ssid = getParameter("SSID", msg);
-    password = getParameter("PASSWORD", msg);
-    host = getParameter("HOST", msg);
+    String ssid = getParameter("SSID", msg);
+    String password = getParameter("PASSWORD", msg);
+    String host = getParameter("HOST", msg);
 
     Serial.println("Got wifi details ");
     Serial.println("SSID " + ssid);
     Serial.println("PASSWORD " + password);
     Serial.println("HOST " + host);
-    setupWifi();
-    connectToCar();
-    Serial.println("Connected to car");
+    setupWifi(ssid.c_str(),password.c_str());
+    connectToCar(host.c_str());
+    Serial.print("Connected to car host : ");
+    Serial.println(host);
     //  Serial.println("Ping");
     //  ping();
 
     return;
   }
-  if (topic == String(phevConnectToCar))
-  {
-    Serial.println("Connecting to car");
-    setupWifi();
-    connectToCar();
-    Serial.println("Connected to car");
-    //  Serial.println("Ping");
-    //  ping();
-    return;
-  }
   if (topic == String(phevReset))
   {
-    Serial.println("Resetting");
-    ESP.restart();
-    return;
+    reset();
   }
   if (topic == String(phevSend))
   {
@@ -411,4 +365,8 @@ void encode64(unsigned char * src, char * dest,unsigned int len) {
 
 int decode64(char * src, unsigned char * dest) {
   return decode_base64((unsigned char *) src,dest);
+}
+void reset() {
+  Serial.println("Resetting");
+  ESP.restart();
 }
