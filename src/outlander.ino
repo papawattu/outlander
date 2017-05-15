@@ -22,6 +22,19 @@ TinyGsm modem(SerialAT);
 TinyGsmClient client(modem);
 PubSubClient mqtt(client);
 
+#define MAX_PAYLOAD_SIZE 200
+#define MAX_NUM_MESSAGES 5
+
+struct MqttMessage {
+  String topic;
+  unsigned int length;
+  unsigned char payload[MAX_PAYLOAD_SIZE];  
+};
+
+MqttMessage messages[MAX_NUM_MESSAGES];
+int numMessages = 0;
+
+
 const char *broker = "jenkins.wattu.com";
 
 const char *topic = "phev";
@@ -67,6 +80,7 @@ void setup()
  
   mqtt.setServer(broker, 1883);
   mqtt.setCallback(mqttCallback);
+  numMessages = 0;
 }
 
 void setupGprs()
@@ -143,9 +157,6 @@ boolean mqttConnect()
   }
   Serial.println(" OK");
   mqtt.publish(phevInit, "Connected");
-  unsigned char buf[] = {0x01,0x02,0x03,0x04,0x00};
-  mqtt.publish(phevReceive, buf, sizeof(buf));
-
   subscribe();
   return mqtt.connected();
 }
@@ -173,9 +184,9 @@ void loop()
 
   if (carConnected)
   {
-    unsigned char buf[128];
+    unsigned char buf[MAX_PAYLOAD_SIZE];
     unsigned char buf2[300];
-    int i = carclient.readBytes(buf, 128);
+    int i = carclient.readBytes(buf, MAX_PAYLOAD_SIZE);
     if (i > 0)
     {
       Serial.print("\nSending mqtt response : ");
@@ -184,12 +195,25 @@ void loop()
       encode64((char *) buf, (unsigned char *) buf2,i);
       mqtt.publish(phevReceive, (const char *)buf2);
 #else
-      mqtt.publish(phevReceive, (const char *)buf,i);
+      mqtt.publish(phevReceive, (byte *)buf,i);
 #endif
 
     }
   }  else {
 
+  }
+  if(numMessages > 0) {
+    handleQueuedMessages();
+  }
+}
+
+void handleQueuedMessages() {
+  int i=0;
+  if(numMessages > 0) {
+    for(i=0;i<numMessages;i++) {
+      handleMessage(messages[i].topic, messages[i].payload,messages[i].length);
+      numMessages--;
+    }    
   }
 }
 
@@ -277,14 +301,27 @@ void ping()
 void mqttCallback(char *topic, byte *payload, unsigned int len)
 {
 
-  memcpy(incomingBuffer,payload,len);
+  if(len > MAX_PAYLOAD_SIZE) {
+    Serial.println("Message payload too big - ignoring");
+    return;
+  }
+  if(numMessages == MAX_NUM_MESSAGES) {
+    Serial.println("Maximum number of queued messages - ignoring");
+    return;
+  }
+
+  messages[numMessages].topic = topic;
+  messages[numMessages].length = len;
+  memcpy((unsigned char *) messages[numMessages].payload,(unsigned char *) payload,len);
+  
+#ifdef _DEBUG
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("]: ");
   Serial.write(payload, len);
   Serial.println();
-  
-  handleMessage(String(topic), incomingBuffer,len);
+#endif
+  numMessages ++;
 }
 
 String getParameter(String param, byte *data)
