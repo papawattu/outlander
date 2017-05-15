@@ -191,7 +191,12 @@ void loop()
       {
 #ifdef _DEBUG
         Serial.print("\nSending mqtt response : ");
-        Serial.println(i);
+        int j;  
+        for(j=0;j<len;j++) {
+          Serial.print(payload[j],HEX);
+          Serial.print(" ");    
+        }
+        Serial.println();
 #endif
 #ifdef _BASE64
         encode64((char *) buf, (unsigned char *) buf2,i);
