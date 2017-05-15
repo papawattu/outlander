@@ -1,4 +1,5 @@
 //#include <ESP8266.h>
+//#define _BASE64
 #include <ESP8266WiFi.h>
 #define TINY_GSM_MODEM_SIM800
 #define TINY_GSM_RX_BUFFER 31
@@ -142,6 +143,9 @@ boolean mqttConnect()
   }
   Serial.println(" OK");
   mqtt.publish(phevInit, "Connected");
+  unsigned char buf[] = {0x01,0x02,0x03,0x04,0x00};
+  mqtt.publish(phevReceive, buf, sizeof(buf));
+
   subscribe();
   return mqtt.connected();
 }
@@ -169,15 +173,20 @@ void loop()
 
   if (carConnected)
   {
-    unsigned char buf[255];
-    char buf2[300];
-    int i = carclient.readBytes(buf, 255);
+    unsigned char buf[128];
+    unsigned char buf2[300];
+    int i = carclient.readBytes(buf, 128);
     if (i > 0)
     {
-      Serial.println("\nSending mqtt response");
-
-      encode64((unsigned char *) buf, (char *) buf2,i);
+      Serial.print("\nSending mqtt response : ");
+      Serial.println(i);
+#ifdef _BASE64
+      encode64((char *) buf, (unsigned char *) buf2,i);
       mqtt.publish(phevReceive, (const char *)buf2);
+#else
+      mqtt.publish(phevReceive, (const char *)buf,i);
+#endif
+
     }
   }  else {
 
@@ -296,7 +305,8 @@ String getParameter(String param, byte *data)
 
 void handleMessage(String topic, byte *msg, unsigned int len)
 {
-
+  int i;
+    
   if (topic == String(phevWifiDetails))
   {
     ssid = getParameter("SSID", msg);
@@ -333,24 +343,27 @@ void handleMessage(String topic, byte *msg, unsigned int len)
   }
   if (topic == String(phevSend))
   {
-    String command;
     byte buf[512];
-    unsigned char buf2[600];
+    unsigned char * buf2;
     memset(buf,'\0',sizeof(buf));
-    memset(buf2,'\0',sizeof(buf2));
+  
+#ifdef _BASE64
+    int length = decode64((char *)msg, (unsigned char *)buf);
+    buf2 = buf;
+#else
+    int length = len;
+    buf2 = msg;
+#endif
 
-
-    int len = decode64((char *)msg, (unsigned char *)buf);
-    int i;
-    buf[len] = '\0';
-
+#ifdef _DEBUG
     Serial.print("Sending command ");
     for (i = 0; i < len; i++)
     {
       Serial.print(buf[i], HEX);
     }
     Serial.println("");
-    carclient.write((unsigned char *)buf, len);
+#endif
+    carclient.write((unsigned char *)buf2, length);
     return;
   }
 }
