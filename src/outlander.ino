@@ -89,8 +89,7 @@ void setupGprs()
   if (!modem.waitForNetwork())
   {
     Serial.println(" fail");
-    while (true)
-      ;
+    reset();
   }
   Serial.println(" OK");
 
@@ -99,8 +98,7 @@ void setupGprs()
   if (!modem.gprsConnect(apn, user, pass))
   {
     Serial.println(" fail");
-    while (true)
-      ;
+    reset();
   }
   Serial.println(" OK");
 }
@@ -187,18 +185,21 @@ void loop()
   {
     unsigned char buf[MAX_PAYLOAD_SIZE];
     unsigned char buf2[300];
-    int i = carclient.readBytes(buf, MAX_PAYLOAD_SIZE);
-    if (i > 0)
-    {
-      Serial.print("\nSending mqtt response : ");
-      Serial.println(i);
-#ifdef _BASE64
-      encode64((char *) buf, (unsigned char *) buf2,i);
-      mqtt.publish(phevReceive, (const char *)buf2);
-#else
-      mqtt.publish(phevReceive, (byte *)buf,i);
+    if(carclient.available() > 0) {
+      int i = carclient.readBytes(buf, (carclient.available() < MAX_PAYLOAD_SIZE?carclient.available():255));
+      if (i > 0)
+      {
+#ifdef _DEBUG
+        Serial.print("\nSending mqtt response : ");
+        Serial.println(i);
 #endif
-
+#ifdef _BASE64
+        encode64((char *) buf, (unsigned char *) buf2,i);
+        mqtt.publish(phevReceive, (const char *)buf2);
+#else
+        mqtt.publish(phevReceive, (byte *)buf,i);
+#endif
+      }
     }
   }  else {
 
@@ -239,7 +240,7 @@ boolean connectToCar(const char * host) {
     const int httpPort = 8080;
     if (carclient.connect(host, httpPort))
     {
-      String msg = "Connected to car host : ";
+      String msg = "OK : Connected to car host : ";
       msg += host;
       carConnected = true;
       Serial.println(msg);
@@ -249,7 +250,7 @@ boolean connectToCar(const char * host) {
     else
     {
       Serial.println("connection failed");
-      mqtt.publish(phevConnected, "Failed to connect to car");
+      mqtt.publish(phevConnected, "FAIL : cannot connect to car");
       return false;
     }
     Serial.println("No Wifi");
