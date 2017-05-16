@@ -76,8 +76,8 @@ void setup()
   mqtt.setCallback(mqttCallback);
 #else
   setupWifi(_SSID,_PASSWORD);
-  connectToCar(_CARHOST);
-  connectToMobile(_HOST);
+  connectToCar(_CARHOST,_CARPORT);
+  connectToMobile(_HOST,_PORT);
 #endif
   numMessages = 0;
 }
@@ -237,7 +237,7 @@ void loop()
       }
     }
   }  else {
-    connectToCar(_CARHOST)
+    connectToCar(_CARHOST,CARPORT_)
   }
 #ifdef _DIRECTIP
   if(client) {
@@ -258,7 +258,7 @@ void loop()
       carclient.write((unsigned char *)buf,bytes);
     } 
   } else {
-    connectToMobile(_CARHOST,_PORT);
+    connectToMobile(_HOST,_PORT);
   }
 #else
   if(numMessages > 0) {
@@ -290,12 +290,11 @@ byte checksum(unsigned char *data)
   return b;
 }
 
-boolean connectToCar(const char * host) {
+boolean connectToCar(const char * host,const int httpPort) {
 
   carConnected = false;
   if (!carclient.connected())
   {
-    const int httpPort = 8080;
     if (carclient.connect(host, httpPort))
     {
       String msg = "OK : Connected to car host : ";
@@ -384,7 +383,7 @@ void handleMessage(String topic, byte *msg, unsigned int len)
     Serial.println("PASSWORD " + password);
     Serial.println("HOST " + host);
     setupWifi(ssid.c_str(),password.c_str());
-    connectToCar(host.c_str());
+    connectToCar(host.c_str(),_CARPORT);
     Serial.print("Connected to car host : ");
     Serial.println(host);
     //  Serial.println("Ping");
