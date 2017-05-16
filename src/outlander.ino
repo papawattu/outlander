@@ -175,38 +175,13 @@ void connectToMobile(const char *host, int port)
 }
 void loop()
 {
-  unsigned char buf[255];
-  if (client.available())
+  while (client.available())
   {
-    int bytes = client.readBytes(buf, (client.available() < 255 ? client.available() : 255));
-
-#ifdef _DEBUG
-    Serial.print("\nSending to car : ");
-    int j;
-    for (j = 0; j < bytes; j++)
-    {
-      Serial.print(buf[j], HEX);
-      Serial.print(" ");
-    }
-    Serial.println();
-#endif
-
-    carclient.write((unsigned char *)buf, bytes);
+    carclient.write(client.read());
   }
-  if (carclient.available())
+  while(carclient.available())
   {
-    int i = carclient.readBytes(buf, (carclient.available() < 255 ? carclient.available() : 255));
-#ifdef _DEBUG
-    Serial.print("\nSending mobile response : ");
-    int j;
-    for (j = 0; j < i; j++)
-    {
-      Serial.print(buf[j], HEX);
-      Serial.print(" ");
-    }
-    Serial.println();
-#endif
-    client.write((unsigned char *)buf, i);
+    client.write(carclient.read());
   }
 }
 
