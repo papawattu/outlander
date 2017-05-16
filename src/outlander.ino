@@ -20,6 +20,7 @@ SoftwareSerial SerialAT(4, 5); // RX, TX
 //StreamDebugger debugger(SerialAT, SerialMon);
 
 WiFiClient carclient;
+WiFiClient mobileClient;
 TinyGsm modem(SerialAT);
 TinyGsmClient client(modem);
 PubSubClient mqtt(client);
@@ -160,6 +161,14 @@ boolean mqttConnect()
   return mqtt.connected();
 }
 
+void connectToMobile(const unsigned char * host, int port) {
+  while(!mobileClient) {
+    if(!mobileClient.connect(host,port)) {
+      Serial.println("Failed to connect to mobile ... retrying in 5 seconds");
+      delay(5000);
+    }
+  }
+}
 void loop()
 {
 
@@ -198,20 +207,38 @@ void loop()
         }
         Serial.println();
 #endif
+#ifdef _DIRECTIP
+        if(mobileClient) {
+          mobileClient.write((unsigned char * ) buf, i);
+        else {
+          connectToMobile(_HOST,_PORT);
+          mobileClient.write((unsigned char * ) buf, i);
+        }
+#else
 #ifdef _BASE64
         encode64((char *) buf, (unsigned char *) buf2,i);
         mqtt.publish(phevReceive, (const char *)buf2);
 #else
         mqtt.publish(phevReceive, (byte *)buf,i);
 #endif
+#endif
       }
     }
   }  else {
 
   }
+#ifdef _DIRECTIP
+  if(mobileClient) {
+    if(mobileClient.available()) {
+      int bytes = mobileClient.readBytes(buf,(mobileClient.available() < 255?mobileClient.avalable():255));  
+    }
+    int bytes = mobileClient.readBytes
+  }
+#else
   if(numMessages > 0) {
     handleQueuedMessages();
   }
+#endif
 }
 
 void handleQueuedMessages() {
