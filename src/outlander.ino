@@ -121,14 +121,14 @@ void setupWifi(const char * ssid,const char * password)
   if (WiFi.status() != WL_CONNECTED)
   {
     WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED && times < 50)
+    while (WiFi.status() != WL_CONNECTED && times < 100)
     {
       delay(500);
       Serial.print(".");
       times++;
     }
   }
-  if(times < 50) {
+  if(times < 100) {
     Serial.println("\nWiFi connected");
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
@@ -167,13 +167,15 @@ boolean mqttConnect()
 }
 
 void connectToMobile(const char * host, int port) {
-  Serial.println("Connecting to mobile");
-  while(!client.connected()) {
-    if(!client.connect(host,port)) {
-      Serial.println("Failed to connect to mobile ... retrying in 5 seconds");
-      delay(5000);
-    }
+  Serial.print("Connecting to mobile host : ");
+  Serial.print(host);
+  Serial.print(" port : ");
+  Serial.println(port);
+  if(!client.connect(host,port)) {
+      Serial.println("Failed to connect to mobile.");
+      reset();
   }
+  Serial.println("Connected OK");
 }
 void loop()
 {
@@ -208,8 +210,8 @@ void loop()
 #ifdef _DEBUG
         Serial.print("\nSending mqtt response : ");
         int j;  
-        for(j=0;j<len;j++) {
-          Serial.print(payload[j],HEX);
+        for(j=0;j<i;j++) {
+          Serial.print(buf[j],HEX);
           Serial.print(" ");    
         }
         Serial.println();
@@ -240,7 +242,22 @@ void loop()
   if(client) {
     if(client.available()) {
       int bytes = client.readBytes(buf,(client.available() < 255?client.available():255));  
-    }
+      
+#ifdef _DEBUG
+        Serial.print("\nSending to car : ");
+        int j;  
+        for(j=0;j<bytes;j++) {
+          Serial.print(buf[j],HEX);
+          Serial.print(" ");    
+        }
+        Serial.println();
+#endif
+
+  
+      carclient.write((unsigned char *)buf,bytes);
+    } 
+  } else {
+    connectToMobile(_HOST,_PORT);
   }
 #else
   if(numMessages > 0) {
