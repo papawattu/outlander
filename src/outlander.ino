@@ -123,7 +123,7 @@ void setupWifi(const char * ssid,const char * password)
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED && times < 100)
     {
-      delay(500);
+      delay(1000);
       Serial.print(".");
       times++;
     }
@@ -236,7 +236,7 @@ void loop()
       }
     }
   }  else {
-
+	connectToCar(_CARHOST);
   }
 #ifdef _DIRECTIP
   if(client) {
