@@ -162,8 +162,9 @@ boolean mqttConnect()
 }
 
 void connectToMobile(const char * host, int port) {
-  while(!mobileClient) {
-    if(!mobileClient.connect(host,port)) {
+  Serial.println("Connecting to mobile");
+  while(!client.connected()) {
+    if(!client.connect(host,port)) {
       Serial.println("Failed to connect to mobile ... retrying in 5 seconds");
       delay(5000);
     }
