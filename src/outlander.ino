@@ -236,7 +236,7 @@ void loop()
       }
     }
   }  else {
-
+    connectToCar(_CARHOST)
   }
 #ifdef _DIRECTIP
   if(client) {
