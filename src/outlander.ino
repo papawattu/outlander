@@ -20,7 +20,6 @@ SoftwareSerial SerialAT(4, 5); // RX, TX
 //StreamDebugger debugger(SerialAT, SerialMon);
 
 WiFiClient carclient;
-WiFiClient mobileClient;
 TinyGsm modem(SerialAT);
 TinyGsmClient client(modem);
 PubSubClient mqtt(client);
@@ -72,9 +71,13 @@ void setup()
   delay(10);
   setupGprs();
   //setupWifi();
- 
+#ifndef _DIRECTIP 
   mqtt.setServer(broker, 1883);
   mqtt.setCallback(mqttCallback);
+#else
+  setupWifi(_SSID,_PASSWORD);
+  connectToCar(_CARHOST);
+#endif
   numMessages = 0;
 }
 
@@ -132,7 +135,9 @@ void setupWifi(const char * ssid,const char * password)
     Serial.println("\nWiFi started");
   } else {
     Serial.println("Wifi timeout");
+#ifndef _DIRECTIP 
     mqtt.publish(phevError, "Failed to connect to WiFi");
+#endif
     //reset();
   }
 }
@@ -173,6 +178,7 @@ void connectToMobile(const char * host, int port) {
 void loop()
 {
   unsigned char buf[MAX_PAYLOAD_SIZE];
+#ifndef _DIRECTIP 
     
   if (mqtt.connected())
   {
@@ -191,7 +197,7 @@ void loop()
       }
     }
   }
-
+#endif
   if (carConnected)
   {
     unsigned char buf2[300];
@@ -209,13 +215,13 @@ void loop()
         Serial.println();
 #endif
 #ifdef _DIRECTIP
-        if(mobileClient) {
+        if(client) {
 
-          mobileClient.write((unsigned char * ) buf, i);
+          client.write((unsigned char * ) buf, i);
         }
         else {
           connectToMobile(_HOST,_PORT);
-          mobileClient.write((unsigned char * ) buf, i);
+          client.write((unsigned char * ) buf, i);
         }
 #else
 #ifdef _BASE64
@@ -231,9 +237,9 @@ void loop()
 
   }
 #ifdef _DIRECTIP
-  if(mobileClient) {
-    if(mobileClient.available()) {
-      int bytes = mobileClient.readBytes(buf,(mobileClient.available() < 255?mobileClient.available():255));  
+  if(client) {
+    if(client.available()) {
+      int bytes = client.readBytes(buf,(client.available() < 255?client.available():255));  
     }
   }
 #else
@@ -278,22 +284,27 @@ boolean connectToCar(const char * host) {
       msg += host;
       carConnected = true;
       Serial.println(msg);
+#ifndef _DIRECTIP
       mqtt.publish(phevConnected, msg.c_str());
+#endif
       return true;
     }
     else
     {
       Serial.println("connection failed");
+#ifndef _DIRECTIP
       mqtt.publish(phevConnected, "FAIL : cannot connect to car");
+#endif
       return false;
     }
     Serial.println("No Wifi");
+#ifndef _DIRECTIP
     mqtt.publish(phevError, "WiFi not connected");
-    
+#endif
   }
   return false;
 }
-
+#ifndef _DIRECTIP
 void mqttCallback(char *topic, byte *payload, unsigned int len)
 {
 
@@ -323,7 +334,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int len)
 #endif
   numMessages ++;
 }
-
+#endif
 String getParameter(String param, byte *data)
 {
   String str = String((const char *)data);
