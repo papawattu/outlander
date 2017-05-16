@@ -70,17 +70,9 @@ void setup()
   SerialMon.begin(115200);
   delay(10);
   setupGprs();
-//setupWifi();
-#ifndef _DIRECTIP
-  mqtt.setServer(broker, 1883);
-  mqtt.setCallback(mqttCallback);
-#else
   setupWifi(_SSID, _PASSWORD);
   connectToCar(_CARHOST, _CARPORT);
   connectToMobile(_HOST, _PORT);
-  client.write((unsigned char *) String("Hello").c_str(),5);
-#endif
-  numMessages = 0;
 }
 
 void setupGprs()
@@ -140,9 +132,6 @@ void setupWifi(const char *ssid, const char *password)
   else
   {
     Serial.println("Wifi timeout");
-#ifndef _DIRECTIP
-    mqtt.publish(phevError, "Failed to connect to WiFi");
-#endif
     //reset();
   }
 }
@@ -187,52 +176,6 @@ void connectToMobile(const char *host, int port)
 void loop()
 {
   unsigned char buf[255];
-#ifndef _DIRECTIP
-
-  if (mqtt.connected())
-  {
-    mqtt.loop();
-  }
-  else
-  {
-    // Reconnect every 10 seconds
-    unsigned long t = millis();
-    if (t - lastReconnectAttempt > 10000L)
-    {
-      lastReconnectAttempt = t;
-      if (mqttConnect())
-      {
-        lastReconnectAttempt = 0;
-      }
-    }
-  }
-#endif
-  unsigned char buf2[300];
-  if (carclient.available())
-  {
-    int i = carclient.readBytes(buf, (carclient.available() < 255 ? carclient.available() : 255));
-  #ifdef _DEBUG
-      Serial.print("\nSending mobile response : ");
-      int j;
-      for (j = 0; j < i; j++)
-      {
-        Serial.print(buf[j], HEX);
-        Serial.print(" ");
-      }
-      Serial.println();
-#endif
-#ifdef _DIRECTIP
-      client.write((unsigned char *)buf, i);
-#else
-#ifdef _BASE64
-      encode64((char *)buf, (unsigned char *)buf2, i);
-      mqtt.publish(phevReceive, (const char *)buf2);
-#else
-      mqtt.publish(phevReceive, (byte *)buf, i);
-#endif
-#endif
-  }
-#ifdef _DIRECTIP
   if (client.available())
   {
     int bytes = client.readBytes(buf, (client.available() < 255 ? client.available() : 255));
@@ -250,12 +193,21 @@ void loop()
 
     carclient.write((unsigned char *)buf, bytes);
   }
-#else
-  if (numMessages > 0)
+  if (carclient.available())
   {
-    handleQueuedMessages();
-  }
+    int i = carclient.readBytes(buf, (carclient.available() < 255 ? carclient.available() : 255));
+#ifdef _DEBUG
+    Serial.print("\nSending mobile response : ");
+    int j;
+    for (j = 0; j < i; j++)
+    {
+      Serial.print(buf[j], HEX);
+      Serial.print(" ");
+    }
+    Serial.println();
 #endif
+    client.write((unsigned char *)buf, i);
+  }
 }
 
 void handleQueuedMessages()
