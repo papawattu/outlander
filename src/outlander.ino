@@ -78,7 +78,7 @@ void setup()
   setupWifi(_SSID, _PASSWORD);
   connectToCar(_CARHOST, _CARPORT);
   connectToMobile(_HOST, _PORT);
-  client.write("Hello");
+  client.write((unsigned char *) String("Hello").c_str(),5);
 #endif
   numMessages = 0;
 }
