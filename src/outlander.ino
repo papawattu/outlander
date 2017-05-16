@@ -161,7 +161,7 @@ boolean mqttConnect()
   return mqtt.connected();
 }
 
-void connectToMobile(const unsigned char * host, int port) {
+void connectToMobile(const char * host, int port) {
   while(!mobileClient) {
     if(!mobileClient.connect(host,port)) {
       Serial.println("Failed to connect to mobile ... retrying in 5 seconds");
@@ -171,7 +171,8 @@ void connectToMobile(const unsigned char * host, int port) {
 }
 void loop()
 {
-
+  unsigned char buf[MAX_PAYLOAD_SIZE];
+    
   if (mqtt.connected())
   {
     mqtt.loop();
@@ -192,7 +193,6 @@ void loop()
 
   if (carConnected)
   {
-    unsigned char buf[MAX_PAYLOAD_SIZE];
     unsigned char buf2[300];
     if(carclient.available() > 0) {
       int i = carclient.readBytes(buf, (carclient.available() < MAX_PAYLOAD_SIZE?carclient.available():255));
@@ -209,7 +209,9 @@ void loop()
 #endif
 #ifdef _DIRECTIP
         if(mobileClient) {
+
           mobileClient.write((unsigned char * ) buf, i);
+        }
         else {
           connectToMobile(_HOST,_PORT);
           mobileClient.write((unsigned char * ) buf, i);
@@ -230,9 +232,8 @@ void loop()
 #ifdef _DIRECTIP
   if(mobileClient) {
     if(mobileClient.available()) {
-      int bytes = mobileClient.readBytes(buf,(mobileClient.available() < 255?mobileClient.avalable():255));  
+      int bytes = mobileClient.readBytes(buf,(mobileClient.available() < 255?mobileClient.available():255));  
     }
-    int bytes = mobileClient.readBytes
   }
 #else
   if(numMessages > 0) {
