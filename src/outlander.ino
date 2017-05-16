@@ -77,6 +77,7 @@ void setup()
 #else
   setupWifi(_SSID,_PASSWORD);
   connectToCar(_CARHOST);
+  connectToMobile(_HOST);
 #endif
   numMessages = 0;
 }
@@ -208,7 +209,7 @@ void loop()
       if (i > 0)
       {
 #ifdef _DEBUG
-        Serial.print("\nSending mqtt response : ");
+        Serial.print("\nSending mobile response : ");
         int j;  
         for(j=0;j<i;j++) {
           Serial.print(buf[j],HEX);
@@ -217,7 +218,7 @@ void loop()
         Serial.println();
 #endif
 #ifdef _DIRECTIP
-        if(client) {
+        if(client.connected()) {
 
           client.write((unsigned char * ) buf, i);
         }
@@ -257,7 +258,7 @@ void loop()
       carclient.write((unsigned char *)buf,bytes);
     } 
   } else {
-    connectToMobile(_HOST,_PORT);
+    connectToMobile(_CARHOST,_PORT);
   }
 #else
   if(numMessages > 0) {
