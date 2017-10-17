@@ -7,7 +7,7 @@ extern "C" {
 #define TINY_GSM_RX_BUFFER 31
 #include <TinyGsmClient.h>
 #include <PubSubClient.h>
-#include <base64.hpp>
+//#include <base64.hpp>
 
 const char apn[] = "everywhere";
 const char user[] = "eesecure";
@@ -24,8 +24,8 @@ TinyGsm modem(SerialAT);
 TinyGsmClient client(modem);
 PubSubClient mqtt(client);
 
-#define MAX_PAYLOAD_SIZE 200
-#define MAX_NUM_MESSAGES 5
+#define MAX_PAYLOAD_SIZE 1024
+#define MAX_NUM_MESSAGES 10
 
 struct MqttMessage
 {
@@ -63,16 +63,16 @@ unsigned char *outgoingBuffer;
 
 void setup()
 {
-  WiFi.persistent(false);
-  WiFi.mode(WIFI_OFF);
-  WiFi.mode(WIFI_STA);
-  WiFi.hostname("android-88a84719193c6b9");
+  WiFi.hostname("VF-1397");
   SerialMon.begin(115200);
   delay(10);
   setupGprs();
-  setupWifi(_SSID, _PASSWORD);
+  setupWifi("REMOTE45cfsc", "fhcm852767");
   connectToCar(_CARHOST, _CARPORT);
-  connectToMobile(_HOST, _PORT);
+  mqtt.setServer(broker, 1883);
+  mqtt.setCallback(mqttCallback);
+  mqttConnect();
+  //connectToMobile(_HOST, _PORT);
 }
 
 void setupGprs()
@@ -104,14 +104,29 @@ void setupGprs()
 void setupWifi(const char *ssid, const char *password)
 {
   int times = 0;
+  //Serial.setDebugOutput(true);
   Serial.println("\nWifi starting");
 
   Serial.println();
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
-  uint8_t mac[] = {0xac, 0x37, 0x43, 0x4d, 0xda, 0x90};
+  uint8_t mac[] = {0x24, 0x0d, 0xc2, 0xc2, 0x91, 0x85};
   bool a = wifi_set_macaddr(STATION_IF, &mac[0]);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid,password);  
+  WiFi.setAutoConnect(false);
+  WiFi.setAutoReconnect(false);
+  WiFi.waitForConnectResult();
+  
+  while(WiFi.status() != WL_CONNECTED) {
+    Serial.print('.');
+    delay(1000);
+  }
+  Serial.print("Address ");
+  Serial.println(WiFi.localIP());
+  /*
+  
   if (WiFi.status() != WL_CONNECTED)
   {
     WiFi.begin(ssid, password);
@@ -133,16 +148,12 @@ void setupWifi(const char *ssid, const char *password)
   {
     Serial.println("Wifi timeout");
     //reset();
-  }
+  } */
 }
 
 void subscribe()
 {
-  //mqtt.subscribe(phevPingOut);
-  mqtt.subscribe(phevConnectToCar);
-  mqtt.subscribe(phevWifiDetails);
   mqtt.subscribe(phevSend);
-  mqtt.subscribe(phevReset);
 }
 
 boolean mqttConnect()
@@ -160,29 +171,55 @@ boolean mqttConnect()
   return mqtt.connected();
 }
 
-void connectToMobile(const char *host, int port)
+int time = 0;
+void status() 
 {
-  Serial.print("Connecting to mobile host : ");
-  Serial.print(host);
-  Serial.print(" port : ");
-  Serial.println(port);
-  if (!client.connect(host, port))
-  {
-    Serial.println("Failed to connect to mobile.");
-    reset();
+
+  if(time == 500) {
+    time = 0;
+    Serial.println("Status");
+    Serial.print("Wifi Connected : ");
+    Serial.println((WiFi.status() == WL_CONNECTED ? "True" : "False"));
+    Serial.print("Client Connected : ");
+    Serial.println((carclient.connected() ? "True" : "False"));
+    Serial.print("MQTT Connected : ");
+    Serial.println((mqtt.connected() ? "True" : "False"));
+    
+    Serial.println();
+  } else {
+    time ++;
   }
-  Serial.println("Connected OK");
 }
 void loop()
-{
+{ /*
   while (client.available())
   {
     carclient.write(client.read());
   }
-  while(carclient.available())
+  */
+  handleQueuedMessages();
+   
+  if(mqtt.connected()) 
   {
-    client.write(carclient.read());
+    mqtt.loop();
+  } else {
+    mqttConnect();
   }
+  if(carclient.connected()) 
+  {
+    while(carclient.available())
+    {
+      byte inputBuf[1024];
+      int len = carclient.read((byte *) &inputBuf,1024); 
+      //Serial.print(inputBuf,HEX);
+  
+      mqtt.publish(phevReceive,(byte *) &inputBuf,len);
+    }
+  } else {
+    connectToCar(_CARHOST, _CARPORT);
+  }
+  status();
+  delay(10);
 }
 
 void handleQueuedMessages()
@@ -217,6 +254,7 @@ boolean connectToCar(const char *host, const int httpPort)
   carConnected = false;
   if (!carclient.connected())
   {
+    carclient.stop();
     if (carclient.connect(host, httpPort))
     {
       String msg = "OK : Connected to car host : ";
@@ -270,7 +308,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int len)
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("]: ");
-  Serial.write(payload, len);
+  printHex(payload,len);
   Serial.println();
 #endif
   numMessages++;
@@ -292,69 +330,37 @@ String getParameter(String param, byte *data)
   }
 }
 
+void printHex(byte * buf, unsigned int len) 
+{
+  int i;
+  for (i = 0; i < len; i++)
+  {
+    Serial.print(buf[i], HEX);
+  }
+  Serial.println("");
+}
 void handleMessage(String topic, byte *msg, unsigned int len)
 {
   int i;
 
-  if (topic == String(phevWifiDetails))
-  {
-    String ssid = getParameter("SSID", msg);
-    String password = getParameter("PASSWORD", msg);
-    String host = getParameter("HOST", msg);
-
-    Serial.println("Got wifi details ");
-    Serial.println("SSID " + ssid);
-    Serial.println("PASSWORD " + password);
-    Serial.println("HOST " + host);
-    setupWifi(ssid.c_str(), password.c_str());
-    connectToCar(host.c_str(), _CARPORT);
-    Serial.print("Connected to car host : ");
-    Serial.println(host);
-    //  Serial.println("Ping");
-    //  ping();
-
-    return;
-  }
-  if (topic == String(phevReset))
-  {
-    reset();
-  }
   if (topic == String(phevSend))
   {
-    byte buf[512];
+    byte buf[1024];
     unsigned char *buf2;
     memset(buf, '\0', sizeof(buf));
 
-#ifdef _BASE64
-    int length = decode64((char *)msg, (unsigned char *)buf);
-    buf2 = buf;
-#else
     int length = len;
     buf2 = msg;
-#endif
 
 #ifdef _DEBUG
     Serial.print("Sending command ");
-    for (i = 0; i < len; i++)
-    {
-      Serial.print(buf[i], HEX);
-    }
-    Serial.println("");
+    printHex(buf2,length);
 #endif
     carclient.write((unsigned char *)buf2, length);
     return;
   }
 }
 
-void encode64(unsigned char *src, char *dest, unsigned int len)
-{
-  encode_base64(src, len, (unsigned char *)dest);
-}
-
-int decode64(char *src, unsigned char *dest)
-{
-  return decode_base64((unsigned char *)src, dest);
-}
 void reset()
 {
   Serial.println("Resetting");

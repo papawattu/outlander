@@ -1,3 +1,5 @@
 .vscode/
 .pioenvs/
 .piolibdeps/
+.pioenvs
+.piolibdeps
