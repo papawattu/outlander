@@ -7,7 +7,6 @@ extern "C" {
 #define TINY_GSM_RX_BUFFER 31
 #include <TinyGsmClient.h>
 #include <PubSubClient.h>
-//#include <base64.hpp>
 
 const char apn[] = "everywhere";
 const char user[] = "eesecure";
@@ -15,17 +14,15 @@ const char pass[] = "secure";
 
 #define SerialMon Serial
 #include <SoftwareSerial.h>
-//#include <StreamDebugger.h>
 SoftwareSerial SerialAT(4, 5); // RX, TX
-//StreamDebugger debugger(SerialAT, SerialMon);
 
 WiFiClient carclient;
 TinyGsm modem(SerialAT);
 TinyGsmClient client(modem);
 PubSubClient mqtt(client);
 
-#define MAX_PAYLOAD_SIZE 1024
-#define MAX_NUM_MESSAGES 10
+#define MAX_PAYLOAD_SIZE 200
+#define MAX_NUM_MESSAGES 20
 
 struct MqttMessage
 {
@@ -67,12 +64,9 @@ void setup()
   SerialMon.begin(115200);
   delay(10);
   setupGprs();
-  setupWifi("REMOTE45cfsc", "fhcm852767");
-  connectToCar(_CARHOST, _CARPORT);
-  mqtt.setServer(broker, 1883);
+  setupWifi(_SSID, _PASSWORD);
+  mqtt.setServer(_MQTT_HOST, _MQTT_PORT);
   mqtt.setCallback(mqttCallback);
-  mqttConnect();
-  //connectToMobile(_HOST, _PORT);
 }
 
 void setupGprs()
@@ -93,9 +87,11 @@ void setupGprs()
 
   Serial.print("Connecting to ");
   Serial.print(apn);
+  Serial.print("...");
+
   if (!modem.gprsConnect(apn, user, pass))
   {
-    Serial.println(" fail");
+    Serial.println(" FAIL");
     reset();
   }
   Serial.println(" OK");
@@ -114,41 +110,18 @@ void setupWifi(const char *ssid, const char *password)
   uint8_t mac[] = {0x24, 0x0d, 0xc2, 0xc2, 0x91, 0x85};
   bool a = wifi_set_macaddr(STATION_IF, &mac[0]);
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid,password);  
+  WiFi.begin(ssid, password);
   WiFi.setAutoConnect(false);
   WiFi.setAutoReconnect(false);
   WiFi.waitForConnectResult();
-  
-  while(WiFi.status() != WL_CONNECTED) {
+
+  while (WiFi.status() != WL_CONNECTED)
+  {
     Serial.print('.');
     delay(1000);
   }
-  Serial.print("Address ");
+  Serial.print("IP Address ");
   Serial.println(WiFi.localIP());
-  /*
-  
-  if (WiFi.status() != WL_CONNECTED)
-  {
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED && times < 100)
-    {
-      delay(1000);
-      Serial.print(".");
-      times++;
-    }
-  }
-  if (times < 100)
-  {
-    Serial.println("\nWiFi connected");
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
-    Serial.println("\nWiFi started");
-  }
-  else
-  {
-    Serial.println("Wifi timeout");
-    //reset();
-  } */
 }
 
 void subscribe()
@@ -172,10 +145,11 @@ boolean mqttConnect()
 }
 
 int time = 0;
-void status() 
+void status()
 {
 
-  if(time == 500) {
+  if (time == 200)
+  {
     time = 0;
     Serial.println("Status");
     Serial.print("Wifi Connected : ");
@@ -184,104 +158,79 @@ void status()
     Serial.println((carclient.connected() ? "True" : "False"));
     Serial.print("MQTT Connected : ");
     Serial.println((mqtt.connected() ? "True" : "False"));
-    
+
     Serial.println();
-  } else {
-    time ++;
+  }
+  else
+  {
+    time++;
   }
 }
 void loop()
-{ /*
-  while (client.available())
+{
+  status();
+
+  if (mqtt.connected())
   {
-    carclient.write(client.read());
-  }
-  */
-  handleQueuedMessages();
-   
-  if(mqtt.connected()) 
-  {
+    handleQueuedMessages();
+
+    if (carclient.connected())
+    {
+      while (carclient.available())
+      {
+        byte inputBuf[1024];
+        int len = carclient.read((byte *)&inputBuf, 1024);
+
+        mqtt.publish(phevReceive, (byte *)&inputBuf, len);
+      }
+    }
+    else
+    {
+      connectToCar(_HOST, _PORT);
+    }
     mqtt.loop();
-  } else {
+  }
+  else
+  {
     mqttConnect();
   }
-  if(carclient.connected()) 
-  {
-    while(carclient.available())
-    {
-      byte inputBuf[1024];
-      int len = carclient.read((byte *) &inputBuf,1024); 
-      //Serial.print(inputBuf,HEX);
-  
-      mqtt.publish(phevReceive,(byte *) &inputBuf,len);
-    }
-  } else {
-    connectToCar(_CARHOST, _CARPORT);
-  }
-  status();
   delay(10);
 }
 
 void handleQueuedMessages()
 {
   int i = 0;
-  if (numMessages > 0)
+  for (i = 0; i < numMessages; i++)
   {
-    for (i = 0; i < numMessages; i++)
-    {
-      handleMessage(messages[i].topic, messages[i].payload, messages[i].length);
-      numMessages--;
-    }
+    handleMessage(messages[i].topic, messages[i].payload, messages[i].length);
+    numMessages--;
   }
+  
 }
 
-byte checksum(unsigned char *data)
-{
-  byte b = 0;
-  int i;
-  int j = sizeof(data);
-
-  for (i = 0; i < j; i++)
-  {
-    b = data[i] + b & 0xff;
-  }
-  return b;
-}
-
-boolean connectToCar(const char *host, const int httpPort)
+void connectToCar(const char *host, const int httpPort)
 {
 
-  carConnected = false;
-  if (!carclient.connected())
-  {
-    carclient.stop();
-    if (carclient.connect(host, httpPort))
-    {
-      String msg = "OK : Connected to car host : ";
-      msg += host;
-      carConnected = true;
-      Serial.println(msg);
-#ifndef _DIRECTIP
-      mqtt.publish(phevConnected, msg.c_str());
-#endif
-      return true;
-    }
-    else
-    {
-      Serial.println("connection failed");
-#ifndef _DIRECTIP
-      mqtt.publish(phevConnected, "FAIL : cannot connect to car");
-#endif
-      return false;
-    }
-    Serial.println("No Wifi");
-#ifndef _DIRECTIP
-    mqtt.publish(phevError, "WiFi not connected");
-#endif
+  boolean connected;
+  int counter = 0;
+  Serial.println("Connect to car");
+  do {
+      connected = carclient.connect(host, httpPort);
+      if (connected) { break; }
+      carclient.stop();
+      delay(1000);
+      counter++;
+      Serial.println("Timeout - Retrying");
+  } while (!connected && counter < 10);
+  if(counter == 10) {
+    reset();
   }
-  return false;
+  String msg = "OK : Connected to car host : ";
+  msg += host;
+  Serial.println(msg);
+  mqtt.publish(phevConnected, msg.c_str());
+  return;
 }
-#ifndef _DIRECTIP
 void mqttCallback(char *topic, byte *payload, unsigned int len)
 {
 
@@ -308,29 +257,12 @@ void mqttCallback(char *topic, byte *payload, unsigned int len)
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("]: ");
-  printHex(payload,len);
+  printHex(payload, len);
   Serial.println();
 #endif
   numMessages++;
 }
-#endif
-String getParameter(String param, byte *data)
-{
-  String str = String((const char *)data);
-  int idx = str.indexOf(param);
-  if (idx > -1)
-  {
-    String p = str.substring(idx + param.length() + 2, str.indexOf('"', idx + param.length() + 2));
-    return p;
-  }
-  else
-  {
-    Serial.println("Not found " + param);
-    return String("");
-  }
-}
-
-void printHex(byte * buf, unsigned int len) 
+void printHex(byte *buf, unsigned int len)
 {
   int i;
   for (i = 0; i < len; i++)
@@ -345,18 +277,16 @@ void handleMessage(String topic, byte *msg, unsigned int len)
 
   if (topic == String(phevSend))
   {
-    byte buf[1024];
-    unsigned char *buf2;
-    memset(buf, '\0', sizeof(buf));
-
-    int length = len;
-    buf2 = msg;
-
+    
 #ifdef _DEBUG
     Serial.print("Sending command ");
-    printHex(buf2,length);
+    printHex(msg, len);
 #endif
-    carclient.write((unsigned char *)buf2, length);
+    if(!carclient.write((unsigned char *) msg, len)) 
+    {
+      Serial.println("Cannot write - Disconnecting");
+      carclient.stop();
+    }
     return;
   }
 }
