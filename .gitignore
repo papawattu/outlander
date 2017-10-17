@@ -3,3 +3,4 @@
 .piolibdeps/
 .pioenvs
 .piolibdeps
+.travis.yml
