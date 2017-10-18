@@ -189,7 +189,7 @@ void loop()
 
   if (mqtt.connected())
   {
-    handleQueuedMessages()
+    handleQueuedMessages();
     if (carclient.connected())
     {
       if (carclient.available())
@@ -217,7 +217,7 @@ void loop()
   mqtt.loop();
 }
 
-void handleQueuedMessages()
+bool handleQueuedMessages()
 {
   int length,bytes;
 
