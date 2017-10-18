@@ -198,8 +198,10 @@ void loop()
         int len = carclient.read((byte *)&inputBuf, 128);
 
         mqtt.publish(phevReceive, (byte *)&inputBuf, len);
+#ifdef _DEBUG
         Serial.print("Read bytes : ");
         Serial.println(len);
+#endif
       }
     } 
     else
