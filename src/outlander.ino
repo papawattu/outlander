@@ -189,20 +189,19 @@ void loop()
 
   if (mqtt.connected())
   {
-    handleQueuedMessages();
-
+    handleQueuedMessages()
     if (carclient.connected())
     {
       if (carclient.available())
       {
-        byte inputBuf[512];
-        int len = carclient.read((byte *)&inputBuf, 512);
+        byte inputBuf[128];
+        int len = carclient.read((byte *)&inputBuf, 128);
 
         mqtt.publish(phevReceive, (byte *)&inputBuf, len);
         Serial.print("Read bytes : ");
         Serial.println(len);
       }
-    }
+    } 
     else
     {
       connectToCar(_HOST, _PORT);
@@ -212,9 +211,8 @@ void loop()
   {
     mqttConnect();
   }
-  mqtt.loop();
   
-//  delay(10);
+  mqtt.loop();
 }
 
 void handleQueuedMessages()
@@ -222,7 +220,7 @@ void handleQueuedMessages()
   int length,bytes;
 
   if (currentSize == 0) {
-    return;
+    return false;
   } else {
     length = currentSize;
   }
@@ -235,7 +233,7 @@ void handleQueuedMessages()
   printHex(receiveBuffer, bytes);
 #endif
   currentSize -= bytes;
-  return;
+  return true;
 }
 
 void connectToCar(const char *host, const int httpPort)
