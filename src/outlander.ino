@@ -52,21 +52,16 @@ unsigned char *outgoingBuffer;
 int currentSize = 0;
 unsigned char *receiveBuffer;
 
-void allocateBuffer()
-{
+void allocateBuffer() {
   receiveBuffer = (unsigned char *)malloc(MAX_SEND_SIZE);
-  if (receiveBuffer < 0)
-  {
+  if (receiveBuffer < 0) {
     Serial.println("Cannot allocate buffer");
     reset();
-  }
-  else
-  {
+  } else {
     Serial.println("Allocating buffer");
   }
 }
-void setup()
-{
+void setup() {
 
   WiFi.hostname("VF-1397");
   SerialMon.begin(115200);
@@ -80,8 +75,7 @@ void setup()
   mqtt.setCallback(mqttCallback);
 }
 
-void setupGprs()
-{
+void setupGprs() {
   SerialAT.begin(115200);
   delay(3000);
 
@@ -89,8 +83,7 @@ void setupGprs()
   modem.restart();
 
   Serial.print("Waiting for network...");
-  if (!modem.waitForNetwork())
-  {
+  if (!modem.waitForNetwork()) {
     Serial.println(" fail");
     reset();
   }
@@ -100,16 +93,14 @@ void setupGprs()
   Serial.print(apn);
   Serial.print("...");
 
-  if (!modem.gprsConnect(apn, user, pass))
-  {
+  if (!modem.gprsConnect(apn, user, pass)) {
     Serial.println(" FAIL");
     reset();
   }
   Serial.println(" OK");
 }
 
-void setupWifi(const char *ssid, const char *password)
-{
+void setupWifi(const char *ssid, const char *password) {
   int times = 0;
   //Serial.setDebugOutput(true);
   Serial.println("\nWifi starting");
@@ -126,8 +117,7 @@ void setupWifi(const char *ssid, const char *password)
   WiFi.setAutoReconnect(true);
   WiFi.waitForConnectResult();
 
-  while (WiFi.status() != WL_CONNECTED)
-  {
+  while (WiFi.status() != WL_CONNECTED) {
     Serial.print('.');
     delay(1000);
   }
@@ -135,19 +125,16 @@ void setupWifi(const char *ssid, const char *password)
   Serial.println(WiFi.localIP());
 }
 
-void subscribe()
-{
+void subscribe() {
   mqtt.subscribe(phevSend);
   mqtt.subscribe(phevReset);
-  
+
 }
 
-boolean mqttConnect()
-{
+boolean mqttConnect() {
   Serial.print("Connecting to ");
   Serial.print(broker);
-  if (!mqtt.connect(topic))
-  {
+  if (!mqtt.connect(topic)) {
     Serial.println(" fail");
     return false;
   }
@@ -158,12 +145,10 @@ boolean mqttConnect()
 }
 
 int time = 0;
-void status()
-{
+void status() {
 #ifdef _DEBUG
   {
-    if (time == 2000)
-    {
+    if (time == 2000) {
       time = 0;
       Serial.println("Status");
       Serial.print("Wifi Connected : ");
@@ -175,25 +160,20 @@ void status()
       Serial.print("Buffer size ");
       Serial.println(currentSize);
       Serial.println();
-    }
-    else
+    } else
     {
       time++;
     }
   }
 #endif
 }
-void loop()
-{
+void loop() {
   //status();
 
-  if (mqtt.connected())
-  {
+  if (mqtt.connected()) {
     handleQueuedMessages();
-    if (carclient.connected())
-    {
-      if (carclient.available())
-      {
+    if (carclient.connected()) {
+      if (carclient.available()) {
         byte inputBuf[128];
         int len = carclient.read((byte *)&inputBuf, 128);
 
@@ -203,23 +183,18 @@ void loop()
         Serial.println(len);
 #endif
       }
-    } 
-    else
-    {
+    } else {
       connectToCar(_HOST, _PORT);
     }
-  }
-  else
-  {
+  } else {
     mqttConnect();
   }
-  
+
   mqtt.loop();
 }
 
-bool handleQueuedMessages()
-{
-  int length,bytes;
+bool handleQueuedMessages() {
+  int length, bytes;
 
   if (currentSize == 0) {
     return false;
@@ -227,9 +202,9 @@ bool handleQueuedMessages()
     length = currentSize;
   }
 
-  
+
   bytes = carclient.write((unsigned char *)receiveBuffer, length);
-  
+
 #ifdef _DEBUG
   Serial.print("Sent command ");
   printHex(receiveBuffer, bytes);
@@ -238,27 +213,27 @@ bool handleQueuedMessages()
   return true;
 }
 
-void connectToCar(const char *host, const int httpPort)
-{
+void connectToCar(const char *host, const int httpPort) {
 
   boolean connected;
   int counter = 0;
+  currentSize = 0;
   Serial.println("Connect to car");
-  do
-  {
+  if(WiFi.status() != WL_CONNECTED) {
+    setupWifi(_SSID, _PASSWORD);
+  }
+  do {
     connected = carclient.connect(host, httpPort);
-    if (connected)
-    {
+    if (connected) {
       break;
     }
     carclient.stop();
     delay(1000);
     counter++;
     Serial.println("Timeout - Retrying");
-    mqtt.loop();    
+    mqtt.loop();
   } while (!connected && counter < 10);
-  if (counter == 10)
-  {
+  if (counter == 10) {
     reset();
   }
   String msg = "OK : Connected to car host : ";
@@ -267,23 +242,19 @@ void connectToCar(const char *host, const int httpPort)
   mqtt.publish(phevConnected, msg.c_str());
   return;
 }
-void mqttCallback(char *topic, byte *payload, unsigned int len)
-{
-  if (len > MAX_PAYLOAD_SIZE)
-  {
+void mqttCallback(char *topic, byte *payload, unsigned int len) {
+  if (len > MAX_PAYLOAD_SIZE) {
     Serial.println("Message payload too big - ignoring");
     mqtt.publish(phevError, "Message payload too big - ignoring");
     return;
   }
-  if ((currentSize + len) >= MAX_SEND_SIZE)
-  {
+  if ((currentSize + len) >= MAX_SEND_SIZE) {
     Serial.println("Maximum number of queued messages - ignoring");
     mqtt.publish(phevError, "Maximum number of queued messages - ignoring");
 
     return;
   }
-  if (String(topic) == String(phevSend))
-  {
+  if (String(topic) == String(phevSend)) {
     unsigned char * pos = receiveBuffer + currentSize;
 
     memcpy((unsigned char *) pos, (unsigned char *)payload, len);
@@ -301,30 +272,25 @@ void mqttCallback(char *topic, byte *payload, unsigned int len)
   Serial.println();
 #endif
 }
-void printHex(byte *buf, unsigned int len)
-{
+void printHex(byte *buf, unsigned int len) {
   int i;
-  for (i = 0; i < len; i++)
-  {
+  for (i = 0; i < len; i++) {
     Serial.print(buf[i], HEX);
   }
   Serial.println("");
 }
-void handleMessage(String topic, byte *msg, unsigned int len)
-{
+void handleMessage(String topic, byte *msg, unsigned int len) {
   int i;
   Serial.print("Topic : ");
   Serial.println(topic);
   printHex(msg, len);
-  if (topic == String(phevSend))
-  {
+  if (topic == String(phevSend)) {
 
 #ifdef _DEBUG
     Serial.print("Sending command ");
     printHex(msg, len);
 #endif
-    if (!carclient.write((unsigned char *)msg, len))
-    {
+    if (!carclient.write((unsigned char *)msg, len)) {
       Serial.println("Cannot write - Disconnecting");
       carclient.stop();
     }
@@ -332,8 +298,7 @@ void handleMessage(String topic, byte *msg, unsigned int len)
   }
 }
 
-void reset()
-{
+void reset() {
   Serial.println("Resetting");
   ESP.restart();
 }
