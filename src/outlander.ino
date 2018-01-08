@@ -3,7 +3,6 @@
 #include <WiFi.h>
 #include <TinyGsmClient.h>
 #include <PubSubClient.h>
-#include <base64.hpp>
 #include <esp_wifi.h>
 const char apn[] = "everywhere";
 const char user[] = "eesecure";
@@ -87,12 +86,32 @@ void setupGprs()
   Serial.println(" OK");
 }
 
+void WiFiEvent(WiFiEvent_t event)
+{
+    Serial.printf("[WiFi-event] event: %d\n", event);
+
+    switch(event) {
+    case SYSTEM_EVENT_STA_START:
+        //set sta hostname here
+        WiFi.setHostname("android-88a84719193c6b9");
+        break;
+    case SYSTEM_EVENT_STA_GOT_IP:
+        Serial.println("WiFi connected");
+        Serial.println("IP address: ");
+        Serial.println(WiFi.localIP());
+        break;
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+        Serial.println("WiFi lost connection");
+        break;
+    }
+}
 void setupWifi(const char *ssid, const char *password)
 {
   int times = 0;
   Serial.println("\nWifi starting");
+  WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
-  delay(500);
+  delay(1000);
   Serial.print("Connecting to ");
   Serial.println(ssid);
   uint8_t mac[] = {0xac, 0x37, 0x43, 0x4d, 0xda, 0x90};
@@ -101,9 +120,10 @@ void setupWifi(const char *ssid, const char *password)
   {
     Serial.println("Cannot set MAC");
   }
-  WiFi.persistent(false);
+
+  WiFi.onEvent(WiFiEvent);
+  
   WiFi.mode(WIFI_STA);
-  WiFi.setHostname("android-88a84719193c6b9");
   WiFi.begin(ssid, password);
   if (WiFi.status() != WL_CONNECTED)
   {
@@ -341,16 +361,6 @@ void handleMessage(String topic, byte *msg, unsigned int len)
     connectToCar(_CARHOST, _CARPORT);
   }
   return;
-}
-
-void encode64(unsigned char *src, char *dest, unsigned int len)
-{
-  encode_base64(src, len, (unsigned char *)dest);
-}
-
-int decode64(char *src, unsigned char *dest)
-{
-  return decode_base64((unsigned char *)src, dest);
 }
 void reset()
 {
