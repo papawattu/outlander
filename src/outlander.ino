@@ -91,6 +91,8 @@ void setupWifi(const char *ssid, const char *password)
 {
   int times = 0;
   Serial.println("\nWifi starting");
+  WiFi.mode(WIFI_OFF);
+  delay(500);
   Serial.print("Connecting to ");
   Serial.println(ssid);
   uint8_t mac[] = {0xac, 0x37, 0x43, 0x4d, 0xda, 0x90};
@@ -100,7 +102,6 @@ void setupWifi(const char *ssid, const char *password)
     Serial.println("Cannot set MAC");
   }
   WiFi.persistent(false);
-  WiFi.mode(WIFI_OFF);
   WiFi.mode(WIFI_STA);
   WiFi.setHostname("android-88a84719193c6b9");
   WiFi.begin(ssid, password);
