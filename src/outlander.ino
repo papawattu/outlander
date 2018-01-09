@@ -124,7 +124,6 @@ void setupWifi(const char *ssid, const char *password)
   WiFi.onEvent(WiFiEvent);
   
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
   if (WiFi.status() != WL_CONNECTED)
   {
     WiFi.begin(ssid, password);
@@ -146,7 +145,7 @@ void setupWifi(const char *ssid, const char *password)
   {
     Serial.println("Wifi timeout");
     //reset();
-  }
+  } 
 }
 
 void subscribe()
