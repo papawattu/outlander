@@ -1,7 +1,7 @@
 #ifndef _EVENTS_H_
 #define _EVENTS_H_
-#include "Stream.h"
 #include "fifo.h"
+#include <string.h>
 
 #define MAX_EVENT_NAME_SIZE 100
 #define MAX_NUM_Q_EVENTS 100
@@ -25,13 +25,12 @@ class EventHandler
 {
   protected:
   public:
-    EventHandler(Stream &);
+    EventHandler();
     ~EventHandler();
     void addEventHandler(const char *);
     void dispatchEvent(Event *);
 
   private:
-    Stream *log;
     Fifo<Event,MAX_NUM_Q_EVENTS> eventsFifo;
 };
 

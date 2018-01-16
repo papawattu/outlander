@@ -2,6 +2,7 @@
 #define TINY_GSM_RX_BUFFER 31
 #include <WiFi.h>
 
+#include "main.h"
 #include "events.h"
 #include "wifihelper.h"
 #include "firmware.h"
@@ -10,8 +11,6 @@
 //#include "carhandler.h"
 
 #define WIFI_TIMEOUT 100
-
-EventHandler eventHandler(Serial);
   
 const char *topic = "phev";
 const char *phevInit = "phev/init";
@@ -56,7 +55,6 @@ void checkUpdate()
     reset();
   }
 }
-#define INCOMING_MQTT_MSG "IncomingMqttMsg"
 
 void setup()
 {
@@ -73,16 +71,13 @@ void setup()
   
   setupMqtt(mqttClient, mqttCallback);
 #endif
-  eventHandler.addEventHandler(INCOMING_MQTT_MSG);
+  mainSetup();
+
 }
 
 void loop()
 {
-  delay(1000);
-  const char payload[] = "Hello";
-  Event event(INCOMING_MQTT_MSG,(uint8_t *) &payload, sizeof(payload));
-  eventHandler.dispatchEvent(&event);
-  Serial.println(esp_get_free_heap_size());
+  eventLoop();
 }
 
 void mqttCallback(char *topic, byte *payload, unsigned int len)

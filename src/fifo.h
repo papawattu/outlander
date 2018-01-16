@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
-
+#include <string.h>
 template <class T,size_t N>
 class Fifo
 {

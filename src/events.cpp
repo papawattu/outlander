@@ -24,17 +24,14 @@ uint8_t *Event::getPayload(uint8_t * payload)
 {
     return _payload;
 }
-EventHandler::EventHandler(Stream &logger)
+EventHandler::EventHandler()
 {
-    log = &logger;
 }
 EventHandler::~EventHandler()
 {
 }
 void EventHandler::addEventHandler(const char *name)
 {
-    log->print("Added new handler ");
-    log->println(name);
     
 }
 
