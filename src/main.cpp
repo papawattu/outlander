@@ -3,9 +3,23 @@
 
 EventHandler eventHandler;
 
+#ifndef ARDUINO
+void log(char * message) 
+{
+    std::cout << message;
+}
+int main() {
+    log("Hello");
+} 
+#else
+void log(char * message)
+{
+    Serial.println(message);
+}
+#endif
 void mainSetup() 
 {
-
+    log("Hello");
 }
 void eventLoop()
 {
@@ -13,12 +27,6 @@ void eventLoop()
   const char payload[] = "Hello";
   Event event(INCOMING_MQTT_MSG,(uint8_t *) &payload, sizeof(payload));
   eventHandler.dispatchEvent(&event);
-  //log(esp_get_free_heap_size());
+  log(esp_get_free_heap_size());
 
 }
-
-#ifndef ARDUINO
-int main() {
-    std::cout << "Hello";
-}
-#endif
