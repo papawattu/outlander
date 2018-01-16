@@ -18,7 +18,7 @@ void eventLoop()
 }
 
 #ifndef ARDUINO
-void main() {
-    cout << "Hello";
+int main() {
+    std::cout << "Hello";
 }
 #endif

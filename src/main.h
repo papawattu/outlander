@@ -1,7 +1,7 @@
 #ifndef _MAIN_H
 
 #ifndef ARDUINO
-#include <iostream.h>
+#include <iostream>
 #endif
 
 #define INCOMING_MQTT_MSG "IncomingMqttMsg"
