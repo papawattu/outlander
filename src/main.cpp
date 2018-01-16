@@ -12,7 +12,7 @@ int main() {
     log("Hello");
 } 
 #else
-void log(char * message)
+void log(const char * message)
 {
     Serial.println(message);
 }
@@ -27,6 +27,6 @@ void eventLoop()
   const char payload[] = "Hello";
   Event event(INCOMING_MQTT_MSG,(uint8_t *) &payload, sizeof(payload));
   eventHandler.dispatchEvent(&event);
-  log(esp_get_free_heap_size());
+  log("Created event");
 
 }
