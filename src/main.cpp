@@ -4,12 +4,16 @@
 EventHandler eventHandler;
 
 #ifndef ARDUINO
-void log(char * message) 
+void log(const char * message) 
 {
     std::cout << message;
 }
 int main() {
-    log("Hello");
+    mainSetup();
+    for(;;)
+    {
+	eventLoop();
+    }
 } 
 #else
 void log(const char * message)
