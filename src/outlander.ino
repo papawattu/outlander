@@ -1,29 +1,18 @@
 #define TINY_GSM_MODEM_SIM800
 #define TINY_GSM_RX_BUFFER 31
 #include <WiFi.h>
-#include <esp_wifi.h>
 
+#include "events.h"
 #include "wifihelper.h"
 #include "firmware.h"
 #include "gsm.h"
 #include "mqtt.h"
-
-WiFiClient carclient;
+//#include "carhandler.h"
 
 #define WIFI_TIMEOUT 100
-#define MAX_PAYLOAD_SIZE 200
-#define MAX_NUM_MESSAGES 50
 
-struct MqttMessage
-{
-  String topic;
-  unsigned int length;
-  unsigned char payload[MAX_PAYLOAD_SIZE];
-};
-
-MqttMessage messages[MAX_NUM_MESSAGES];
-int numMessages = 0;
-
+EventHandler eventHandler(Serial);
+  
 const char *topic = "phev";
 const char *phevInit = "phev/init";
 const char *phevPingOut = "phev/pingOut";
@@ -51,176 +40,55 @@ unsigned char *outgoingBuffer;
 #define _UPDATE_PIN 21
 #define _DOWNLOAD_URL "http://192.168.1.103:8080/firmware.bin"
 
-void setup()
+
+void initSerial() 
 {
-
   Serial.begin(115200);
-  delay(10);
-
+}
+void checkUpdate() 
+{
   pinMode(_UPDATE_PIN, INPUT);
-  if (digitalRead(21) > 0)
+  if (digitalRead(_UPDATE_PIN) > 0)
   {
     Serial.println("Downloading new firmware");
     connectToWiFi((char *)_LOCAL_SSID, (char *)_LOCAL_PASSWORD);
     downloadUpdate((char *)_DOWNLOAD_URL);
     reset();
   }
+}
+#define INCOMING_MQTT_MSG "IncomingMqttMsg"
 
+void setup()
+{
   HardwareSerial SerialAT(1);
   SerialAT.begin(115200, SERIAL_8N1, 16, 17, false);
-  delay(5000);
+  delay(10);
 
-  setupMqtt(setupGprs(SerialAT), mqttCallback);
+  initSerial();
+  
+  checkUpdate();
+
+#ifndef _TEST
+  Client mqttClient = setupGprs(SerialAT);
+  
+  setupMqtt(mqttClient, mqttCallback);
+#endif
+  eventHandler.addEventHandler(INCOMING_MQTT_MSG);
 }
 
 void loop()
 {
-  if (mqttConnected())
-  {
-    mqttLoop();
-  }
-  else
-  {
-    // Reconnect every 10 seconds
-    unsigned long t = millis();
-    if (t - lastReconnectAttempt > 10000L)
-    {
-      lastReconnectAttempt = t;
-      if (mqttConnect(topic))
-      {
-        mqttPublish(phevInit, "Connected");
-        subscribe(phevSend);
-        subscribe(phevReset);
-
-        lastReconnectAttempt = 0;
-      }
-    }
-  }
-  if (numMessages)
-  {
-    handleQueuedMessages();
-  }
-  if (WiFi.status() != WL_CONNECTED)
-  {
-    setupWifi(_SSID, _PASSWORD);
-  }
-  else
-  {
-    if (!carclient.connected())
-    {
-      if (!connectToCar(_CARHOST, _CARPORT))
-      {
-        setupWifi(_SSID, _PASSWORD);
-      }
-    }
-    else
-    {
-      if (carclient.available())
-      {
-        unsigned char buf[1024];
-        int len = carclient.readBytes(buf, (carclient.available() < 1024 ? carclient.available() : 1024));
-#ifdef _DEBUG
-        Serial.print("Response from car ");
-        int i;
-        for (i = 0; i < len; i++)
-        {
-          Serial.print(buf[i], HEX);
-        }
-#endif
-        mqttPublish(phevReceive, buf, len);
-      }
-    }
-  }
+  delay(1000);
+  const char payload[] = "Hello";
+  Event event(INCOMING_MQTT_MSG,(uint8_t *) &payload, sizeof(payload));
+  eventHandler.dispatchEvent(&event);
+  Serial.println(esp_get_free_heap_size());
 }
 
-void handleQueuedMessages()
-{
-  int i = 0;
-  if (numMessages > 0)
-  {
-    handleMessage(messages[i].topic, messages[i].payload, messages[i].length);
-    numMessages--;
-  }
-}
-
-byte checksum(unsigned char *data)
-{
-  byte b = 0;
-  int i;
-  int j = sizeof(data);
-
-  for (i = 0; i < j; i++)
-  {
-    b = data[i] + b & 0xff;
-  }
-  return b;
-}
-
-boolean connectToCar(const char *host, const int httpPort)
-{
-  WiFiClient car;
-  Serial.print("Connecting to ");
-  Serial.print(host);
-  Serial.print(":");
-  Serial.println(httpPort);
-
-  carConnected = false;
-  if (!carclient.connected())
-  {
-    int status = car.connect(host, httpPort);
-    if (status)
-    {
-      String msg = "OK : Connected to car host : ";
-      msg += host;
-      carConnected = true;
-      Serial.println(msg);
-      mqttPublish(phevConnected, msg.c_str());
-      carclient = car;
-      return true;
-    }
-    else
-    {
-      Serial.print("connection failed status : ");
-      Serial.println(status);
-
-      mqttPublish(phevConnected, "FAIL : cannot connect to car");
-      return false;
-    }
-    Serial.println("No Wifi");
-    mqttPublish(phevError, "WiFi not connected");
-  }
-  return false;
-}
 void mqttCallback(char *topic, byte *payload, unsigned int len)
 {
 
-  if (len > MAX_PAYLOAD_SIZE)
-  {
-    Serial.println("Message payload too big - ignoring");
-    mqtt.publish(phevError, "Message payload too big - ignoring");
-
-    return;
-  }
-  if (numMessages == MAX_NUM_MESSAGES)
-  {
-    Serial.println("Maximum number of queued messages - ignoring");
-    mqtt.publish(phevError, "Maximum number of queued messages - ignoring");
-
-    return;
-  }
-
-  messages[numMessages].topic = topic;
-  messages[numMessages].length = len;
-  memcpy((unsigned char *)messages[numMessages].payload, (unsigned char *)payload, len);
-
-#ifdef _DEBUG
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("]: ");
-  Serial.write(payload, len);
-  Serial.println();
-#endif
-  numMessages++;
+  //dispatchEvent(Event.INCOMING_MESSAGE)
 }
 String getParameter(String param, byte *data)
 {
@@ -254,20 +122,15 @@ void handleMessage(String topic, byte *msg, unsigned int len)
     Serial.println("");
 
 #endif
-    carclient.write((unsigned char *)msg, len);
+    
+    //carclientWrite((unsigned char *)msg, len);
     return;
   }
   if (topic == String(phevReset))
   {
-    mqttPublish(phevReset, "Resetting");
+    //mqttPublish(phevReset, "Resetting");
     reset();
   }
-  if (topic == String(phevConnectToCar))
-  {
-    setupWifi(_SSID, _PASSWORD);
-    connectToCar(_CARHOST, _CARPORT);
-  }
-  return;
 }
 void reset()
 {

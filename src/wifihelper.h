@@ -2,6 +2,8 @@
 #define WIFI_HELPER_H
 #define WIFI_TIMEOUT 100
 #include <WiFi.h>
+#include <esp_wifi.h>
+
 
 #define _MAC_ADDR {0xac, 0x37, 0x43, 0x4d, 0xda, 0x90}
 #define _HOSTNAME "android-88a84719193c6b9"
