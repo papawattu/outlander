@@ -10,4 +10,5 @@
 
 void mainSetup(void);
 void eventLoop(void);
+void log(const char *);
 #endif

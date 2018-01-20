@@ -2,6 +2,7 @@
 #define _EVENTS_H_
 #include "fifo.h"
 #include <string.h>
+#include <stdint.h>
 
 #define MAX_EVENT_NAME_SIZE 100
 #define MAX_NUM_Q_EVENTS 100

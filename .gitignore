@@ -2,4 +2,6 @@
 .pioenvs/
 .piolibdeps/
 bin/
-src/*.o
+*.a
+*.o
+*.exe

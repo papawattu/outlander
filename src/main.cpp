@@ -8,13 +8,14 @@ void log(const char * message)
 {
     std::cout << message;
 }
-int main() {
+/* int main() {
     mainSetup();
     for(;;)
     {
 	eventLoop();
     }
 } 
+ */
 #else
 void log(const char * message)
 {
