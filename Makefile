@@ -18,7 +18,7 @@ CXXFLAGS += -g -Wall -Wextra -pthread
 
 # All tests produced by this Makefile.  Remember to add new tests you
 # created to the list.
-TESTS = run
+TESTS = test_main
 
 # All Google Test headers.  Usually you shouldn't change this
 # definition.
@@ -30,7 +30,7 @@ GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
 all : $(TESTS)
 
 clean :
-	rm -f $(TESTS) gtest.a gtest_main.a *.o
+	rm -f $(TESTS) gtest.a gtest_main.a src/*.o
 
 # Builds gtest.a and gtest_main.a.
 
