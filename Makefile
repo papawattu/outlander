@@ -1,7 +1,7 @@
 CC=g++
-CFLAGS=-c -Wall 
-LDFLAGS=
-SOURCES=src/main.cpp src/events.cpp
+#CFLAGS=-c -Wall 
+#LDFLAGS=
+#SOURCES=src/main.cpp src/events.cpp src/fifo.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 
 # Where to find user code.
@@ -30,7 +30,7 @@ GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
 all : $(TESTS)
 
 clean :
-	rm -f $(TESTS) gtest.a gtest_main.a src/*.o
+	rm -f $(TESTS) gtest.a gtest_main.a *.o
 
 # Builds gtest.a and gtest_main.a.
 
@@ -64,15 +64,17 @@ events.o : $(USER_DIR)/events.cpp $(USER_DIR)/events.h $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_DIR)/events.cpp
 main.o : $(USER_DIR)/main.cpp $(USER_DIR)/main.h $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_DIR)/main.cpp
-
 test_main.o : $(USER_TEST_DIR)/test_main.cpp \
                      $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_TEST_DIR)/test_main.cpp
 test_events.o : $(USER_TEST_DIR)/test_events.cpp \
                      $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_TEST_DIR)/test_events.cpp
+test_fifo.o : $(USER_TEST_DIR)/test_fifo.cpp \
+                     $(GTEST_HEADERS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_TEST_DIR)/test_fifo.cpp
 
-test_main : events.o main.o test_main.o test_events.o gtest_main.a
+test_main : events.o main.o test_main.o test_fifo.o gtest_main.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -D UNIT_TEST -lpthread $^ -o $@
 
 run: 

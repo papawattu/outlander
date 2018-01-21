@@ -33,6 +33,7 @@ class Fifo
     }
     int pop(T *t)
     {
+        if(count == 0) return -1;
         int idx = first * sizeof(T);
         memcpy(t, &buffer[idx], (size_t) sizeof(T));
         first = (first + 1) % sizeof(T);
