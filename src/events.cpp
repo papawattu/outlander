@@ -30,6 +30,11 @@ EventHandler::EventHandler()
 EventHandler::~EventHandler()
 {
 }
+int EventHandler::queuedEvents(void) 
+{
+    return eventsFifo.getCount();
+}
+
 void EventHandler::addEventHandler(const char *name)
 {
     
@@ -40,4 +45,10 @@ void EventHandler::dispatchEvent(Event  * event)
     
     eventsFifo.push(event);
     
+}
+
+void EventHandler::handleEvent(void)
+{
+    Event * event;
+    eventsFifo.pop(event);
 }

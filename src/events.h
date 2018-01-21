@@ -28,8 +28,10 @@ class EventHandler
   public:
     EventHandler();
     ~EventHandler();
+    int queuedEvents(void);
     void addEventHandler(const char *);
     void dispatchEvent(Event *);
+    void handleEvent(void);
 
   private:
     Fifo<Event,MAX_NUM_Q_EVENTS> eventsFifo;
