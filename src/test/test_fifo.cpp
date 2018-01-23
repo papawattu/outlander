@@ -40,3 +40,23 @@ TEST(FifoTest, shouldAddAndRemoveFromQueue)
   EXPECT_EQ(0,queue.getCount());
   EXPECT_EQ(666,tmp2);
 }
+TEST(FifoTest, shouldRollOverQueue)
+{
+  Fifo<int,3> queue;
+  int tmp = 0;
+  int tmp2 = 0;
+  queue.push(&tmp);
+  tmp++;
+  queue.push(&tmp);
+  tmp++;
+  queue.push(&tmp);
+  tmp++;
+  queue.push(&tmp);
+  tmp++;
+  queue.pop(&tmp2);
+  EXPECT_EQ(0,tmp2);
+  queue.push(&tmp);
+  queue.pop(&tmp2);
+  EXPECT_EQ(2,queue.getCount());
+  EXPECT_EQ(1,tmp2);
+}

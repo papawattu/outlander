@@ -6,6 +6,12 @@
 
 #define MAX_EVENT_NAME_SIZE 100
 #define MAX_NUM_Q_EVENTS 100
+class EventLoop
+{
+  public:
+    EventLoop(void);
+    ~EventLoop(void);
+}
 
 class Event
 {

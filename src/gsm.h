@@ -1,6 +1,8 @@
 #ifndef GSM_H
 #define GSM_H
 
+#define TINY_GSM_MODEM_SIM800
+#define TINY_GSM_RX_BUFFER 31
 
 #include <TinyGsmClient.h>
 

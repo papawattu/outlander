@@ -3,6 +3,23 @@
 #include <HTTPClient.h>
 #include <Update.h>
 
+#define _LOCAL_SSID "BTHub3-HSZ3"
+#define _LOCAL_PASSWORD "simpsons"
+#define _UPDATE_PIN 21
+#define _DOWNLOAD_URL "http://192.168.1.103:8080/firmware.bin"
+
+void checkUpdate() 
+{
+  pinMode(_UPDATE_PIN, INPUT);
+  if (digitalRead(_UPDATE_PIN) > 0)
+  {
+    Serial.println("Downloading new firmware");
+    connectToWiFi((char *)_LOCAL_SSID, (char *)_LOCAL_PASSWORD);
+    downloadUpdate((char *)_DOWNLOAD_URL);
+    reset();
+  }
+}
+
 void downloadUpdate(char* url)
 {
     HTTPClient http;

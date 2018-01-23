@@ -8,6 +8,9 @@ OBJECTS=$(SOURCES:.cpp=.o)
 USER_DIR = src
 USER_TEST_DIR = ${USER_DIR}/test
 
+USER_SRCS_ = $(USER_DIR)/*.cpp $(USER_DIR)/*.h 
+TEST_SRCS_ = $(USER_DIR)/test/*.cpp 
+
 # Flags passed to the preprocessor.
 # Set Google Test's header directory as a system directory, such that
 # the compiler doesn't generate warnings in Google Test headers.
@@ -60,22 +63,9 @@ gtest_main.a : gtest-all.o gtest_main.o
 # gtest_main.a, depending on whether it defines its own main()
 # function.
 
-events.o : $(USER_DIR)/events.cpp $(USER_DIR)/events.h $(GTEST_HEADERS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_DIR)/events.cpp
-main.o : $(USER_DIR)/main.cpp $(USER_DIR)/main.h $(GTEST_HEADERS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_DIR)/main.cpp
-test_main.o : $(USER_TEST_DIR)/test_main.cpp \
-                     $(GTEST_HEADERS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_TEST_DIR)/test_main.cpp
-test_events.o : $(USER_TEST_DIR)/test_events.cpp \
-                     $(GTEST_HEADERS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_TEST_DIR)/test_events.cpp
-test_fifo.o : $(USER_TEST_DIR)/test_fifo.cpp \
-                     $(GTEST_HEADERS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_TEST_DIR)/test_fifo.cpp
-
-test_main : events.o main.o test_main.o test_fifo.o gtest_main.a
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -D UNIT_TEST -lpthread $^ -o $@
-
+test_main.o : $(TEST_SRCS_) 
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -I$(USER_TEST_DIR) -c $(USER_TEST_DIR)/test_main.cpp
+test_main : test_main.o gtest_main.a
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -lpthread $^ -o $@
 run: 
 	./test_main
