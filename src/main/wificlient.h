@@ -6,7 +6,7 @@
 class WIFIClient : public WiFiClient
 {
     public:
-        WIFIClient(void);
+        WIFIClient(const char*, const char*);
         ~WIFIClient(void);
     
 };

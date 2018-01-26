@@ -8,7 +8,11 @@ PHEVClient::~PHEVClient(void)
 {
 
 }
-PHEVClient::attachEventHandler(EventLoop& e)
+void PHEVClient::attachEventHandler(EventLoop& e)
 {
-    
+
+}
+void PHEVClient::incomingEvent(Event& e)
+{
+
 }

@@ -9,7 +9,11 @@ MQTTClient::~MQTTClient(void)
 {
 
 }
-MQTTClient::attachEventHandler(EventLoop& e)
+void MQTTClient::attachEventHandler(EventLoop& e)
 {
     
+}
+void MQTTClient::incomingEvent(Event& e)
+{
+
 }

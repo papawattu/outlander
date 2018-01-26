@@ -2,7 +2,7 @@
 #define PHEVCLIENT_H_
 
 
-#include <stream.h>
+#include <client.h>
 #include "events.h"
 
 class PHEVClient 
@@ -11,5 +11,6 @@ class PHEVClient
         PHEVClient(const Client&);
         ~PHEVClient(void);
         void attachEventHandler(EventLoop&);
+        static void incomingEvent(Event&);
 };
 #endif

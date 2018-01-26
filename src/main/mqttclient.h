@@ -11,6 +11,7 @@ class MQTTClient
     public:
         MQTTClient(const Client&);
         ~MQTTClient(void);
-        attachEventHandler(EventLoop&);   
+        void attachEventHandler(EventLoop&);
+        static void incomingEvent(Event&);   
 };
 #endif

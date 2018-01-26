@@ -52,3 +52,20 @@ void EventHandler::handleEvent(void)
     Event * event;
     eventsFifo.pop(event);
 }
+
+EventLoop::EventLoop(void)
+{
+
+}
+EventLoop::~EventLoop(void)
+{
+    
+}
+void EventLoop::addListener(void (*func)(Event&))
+{
+    
+}
+void EventLoop::loop(void)
+{
+    
+}
