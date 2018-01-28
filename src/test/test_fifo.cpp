@@ -1,5 +1,5 @@
 
-#include "../fifo.h"
+#include "../main/fifo.h"
 #include "gtest/gtest.h"
 
 TEST(FifoTest, shouldBeEmpty)
