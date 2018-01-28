@@ -5,6 +5,3 @@ lib/
 obj/
 bin/
 dep/
-*.a
-*.o
-*.exe
