@@ -1,6 +1,6 @@
 #include "phevclient.h"
 
-PHEVClient::PHEVClient(const Client& _client)
+PHEVClient::PHEVClient(const PHEVMessageQueue& incoming, const PHEVMessageQueue& outgoing) : _incomingQueue(incoming), _outgoingQueue(outgoing) 
 {
 
 }
@@ -8,11 +8,7 @@ PHEVClient::~PHEVClient(void)
 {
 
 }
-void PHEVClient::attachEventHandler(EventLoop& e)
+void PHEVClient::loop(void)
 {
-
-}
-void PHEVClient::incomingEvent(Event& e)
-{
-
+    _outgoingQueue.push(&_incomingQueue.pop());
 }
