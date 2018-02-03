@@ -8,7 +8,7 @@ TEST_SOURCES = $(wildcard $(TEST_DIR)/*.cpp) $(wildcard $(MOCKS_DIR)/*.h)
 TEST_OBJECTS := $(TEST_SOURCES:$(TEST_DIR)/%.cpp=$(OBJ_DIR)/%.o)  
 LIB_DIR = $(GTEST_DIR)/include
 MOCKS_DIR = $(TEST_DIR)/mocks
-CXXFLAGS += -g -Wall -Wextra -pthread -isystem $(GTEST_DIR)/include -I $(MOCKS_DIR) -I $(LIB_DIR)
+CXXFLAGS += -g -std=c++17 -Wall -Wextra -pthread -isystem $(GTEST_DIR)/include -I $(MOCKS_DIR) -I $(LIB_DIR)
 DEP_DIR = dep
 BIN_DIR = bin
 TARGET = tests

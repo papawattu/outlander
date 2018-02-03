@@ -4,44 +4,39 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <iostream>
+
 template <typename T,size_t N>
 class Fifo
 {
   public:
-    Fifo() : count(0), first(0), last(0) {}
+    Fifo() : count(0), first(0), last(0) 
+    {
+        static_assert(N > 1);
+    }
 
     ~Fifo() {}
-    void push(const T* value)
+    void push(T& value)
     {
-        if(count == N) {
-            return;
+        if(count < N) {
+            buffer[last] = value;
+            last = (last + 1) % N;
+            count ++; 
         }
-        int idx = last;
-        memcpy((void *) &buffer[idx], (void *) value, (size_t) sizeof(T)); 
-        last = (last + 1) % (N - 1);
-        count ++; 
     }
-    int pop(T *t)
+    T pop(void)
     {
-        if(count == 0) return -1;
-        int idx = first;
-        t = &buffer[idx];
-        first = (first + 1) % (N - 1);
+        if(count == 0)  throw std::underflow_error("No entries");
+        T t = buffer[first];
+        first = (first + 1) % N;
         count --;
-        return sizeof(T);
+        return T(t); 
     }
-    auto pop(void)
-    {
-        auto idx = first * sizeof(T);
-        first = (first + 1) % (N - 1);
-        count --;
-        return buffer[idx];
-    }
-    size_t getSize() 
+    auto getSize() 
     {
         return N;
     }
-    uint16_t getCount()
+    auto getCount()
     {
         return count;
     }

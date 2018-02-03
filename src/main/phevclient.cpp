@@ -10,5 +10,5 @@ PHEVClient::~PHEVClient(void)
 }
 void PHEVClient::loop(void)
 {
-    _outgoingQueue.push(&_incomingQueue.pop());
+    //_outgoingQueue.push(_incomingQueue.pop());
 }
