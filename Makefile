@@ -9,6 +9,7 @@ TEST_OBJECTS := $(TEST_SOURCES:$(TEST_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 LIB_DIR = $(GTEST_DIR)/include
 MOCKS_DIR = $(TEST_DIR)/mocks
 CXXFLAGS += -g -std=c++17 -Wall -Wextra -pthread -isystem $(GTEST_DIR)/include -I $(MOCKS_DIR) -I $(LIB_DIR)
+LFLAGS += -lpthread
 DEP_DIR = dep
 BIN_DIR = bin
 TARGET = tests
@@ -34,6 +35,7 @@ $(MAIN_OBJECTS) : $(OBJ_DIR)/%.o : $(SRC_DIR)/%.cpp
 	$(CXX) -I$(LIB_DIR) -I$(MOCKS_DIR) -MM -MT '$(OBJ_DIR)/$*.o' $(SRC_DIR)/$*.cpp > $(DEP_DIR)/$*.d
 
 $(TEST_OBJECTS) : $(OBJ_DIR)/%.o : $(TEST_DIR)/%.cpp  
+	mkdir -p $(OBJ_DIR)
 	$(CXX) -I$(LIB_DIR) -c $(CXXFLAGS) $< -o $@
 	$(CXX) -I$(LIB_DIR) -MM -MT '$(OBJ_DIR)/$*.o' $(TEST_DIR)/$*.cpp > $(DEP_DIR)/$*.d
 
