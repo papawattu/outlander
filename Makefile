@@ -31,11 +31,11 @@ $(BIN_DIR)/$(TARGET): $(TEST_OBJECTS) $(MAIN_OBJECTS) $(OBJ_DIR)/gtest-all.o
 	@echo "Linking complete"
 
 $(MAIN_OBJECTS) : $(OBJ_DIR)/%.o : $(SRC_DIR)/%.cpp
-	mkdir -p $(DEP_DIR)
 	$(CXX) -I$(LIB_DIR) -I$(MOCKS_DIR) -c $(CXXFLAGS) $< -o $@
 	$(CXX) -I$(LIB_DIR) -I$(MOCKS_DIR) -MM -MT '$(OBJ_DIR)/$*.o' $(SRC_DIR)/$*.cpp > $(DEP_DIR)/$*.d
 
-$(TEST_OBJECTS) : $(OBJ_DIR)/%.o : $(TEST_DIR)/%.cpp  
+$(TEST_OBJECTS) : $(OBJ_DIR)/%.o : $(TEST_DIR)/%.cpp
+	mkdir -p $(DEP_DIR)
 	mkdir -p $(OBJ_DIR)
 	$(CXX) -I$(LIB_DIR) -c $(CXXFLAGS) $< -o $@
 	$(CXX) -I$(LIB_DIR) -MM -MT '$(OBJ_DIR)/$*.o' $(TEST_DIR)/$*.cpp > $(DEP_DIR)/$*.d
